@@ -1,5 +1,6 @@
 import React from 'react';
 import { Calculator, Square, Cuboid as Cube, ArrowRightLeft, X, Crown } from 'lucide-react';
+import { useLanguage } from '../hooks/useLanguage';
 import { categoryLabels } from '../data/calculators';
 
 interface SidebarProps {
@@ -15,13 +16,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose
 }) => {
+  const { t } = useLanguage();
+
   const categories = [
-    { id: 'all', label: 'All Tools', icon: Calculator },
-    { id: 'quantity', label: categoryLabels.quantity, icon: Calculator },
-    { id: 'area', label: categoryLabels.area, icon: Square },
-    { id: 'volume', label: categoryLabels.volume, icon: Cube },
-    { id: 'converter', label: categoryLabels.converter, icon: ArrowRightLeft },
-    { id: 'pro', label: 'Pro Tools', icon: Crown }
+    { id: 'all', label: t('allTools'), icon: Calculator },
+    { id: 'quantity', label: t('quantity'), icon: Calculator },
+    { id: 'area', label: t('area'), icon: Square },
+    { id: 'volume', label: t('volume'), icon: Cube },
+    { id: 'converter', label: t('converter'), icon: ArrowRightLeft },
+    { id: 'pro', label: t('proTools'), icon: Crown }
   ];
 
   return (
@@ -36,11 +39,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out z-50 lg:translate-x-0 ${
+        className={`fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out z-50 lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-4">
+        <div className="p-4 pt-20">
           <div className="flex items-center justify-between mb-6 lg:hidden">
             <h2 className="text-lg font-heading font-semibold text-gray-900 dark:text-gray-100">
               Categories
@@ -63,9 +66,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onTabChange(category.id);
                     onClose();
                   }}
-                  className={`w-full flex items-center px-3 py-2.5 rounded-lg text-left transition-colors ${
+                  className={`w-full flex items-center px-4 py-3 rounded-lg text-left transition-all duration-200 ${
                     activeTab === category.id
-                      ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300'
+                      ? 'bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 shadow-sm'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
@@ -81,9 +84,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-body">
-            Professional engineering calculations for construction and architecture
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-50 to-transparent dark:from-gray-800 dark:to-transparent">
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-body text-center">
+            {t('tagline')}
           </p>
         </div>
       </aside>

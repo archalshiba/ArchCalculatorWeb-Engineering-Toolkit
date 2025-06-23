@@ -1,46 +1,92 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { CalculatorCard } from './components/CalculatorCard';
-import { SearchOverlay } from './components/SearchOverlay';
 import { BottomNavMobile } from './components/BottomNavMobile';
 import { CategoryHeader } from './components/CategoryHeader';
+import { PopularCalculators } from './components/PopularCalculators';
+import { RecentCalculators } from './components/RecentCalculators';
+import { TagFilter } from './components/TagFilter';
+import { useLanguage } from './hooks/useLanguage';
+import { usePreferences } from './hooks/usePreferences';
 import { calculators, proCalculators, CalculatorItem } from './data/calculators';
+import { themes } from './data/themes';
 
 function App() {
+  const { t } = useLanguage();
+  const { preferences, addRecentCalculator } = usePreferences();
   const [activeTab, setActiveTab] = useState('all');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Apply theme on mount and when theme changes
+  useEffect(() => {
+    const theme = themes.find(t => t.id === preferences.theme);
+    if (theme) {
+      const root = document.documentElement;
+      root.style.setProperty('--color-primary', theme.colors.primary);
+      root.style.setProperty('--color-secondary', theme.colors.secondary);
+      root.style.setProperty('--color-accent', theme.colors.accent);
+      root.style.setProperty('--color-background', theme.colors.background);
+    }
+  }, [preferences.theme]);
 
   const handleCalculatorClick = (calculator: CalculatorItem) => {
     console.log('Opening calculator:', calculator.title);
-    // Here you would typically navigate to the calculator page or open a modal
+    addRecentCalculator(calculator.id);
+    
+    if (calculator.isPro) {
+      alert(t('proFeature'));
+      return;
+    }
+    
     alert(`Opening ${calculator.title} calculator. This would navigate to the calculator interface.`);
   };
 
   const getFilteredCalculators = () => {
     const allCalculators = [...calculators, ...(activeTab === 'pro' ? proCalculators : [])];
     
+    let filtered = allCalculators;
+    
     if (activeTab === 'all') {
-      return calculators; // Only show regular calculators for 'all'
+      filtered = calculators; // Only show regular calculators for 'all'
+    } else if (activeTab === 'pro') {
+      filtered = proCalculators;
+    } else {
+      filtered = allCalculators.filter(calc => calc.category === activeTab);
     }
-    
-    if (activeTab === 'pro') {
-      return proCalculators;
+
+    // Apply tag filters
+    if (selectedTags.length > 0) {
+      // For now, we'll just return the filtered results
+      // In a real app, calculators would have tags associated with them
+      filtered = filtered;
     }
-    
-    return allCalculators.filter(calc => calc.category === activeTab);
+
+    return filtered;
   };
 
   const filteredCalculators = getFilteredCalculators();
 
+  const handleTagToggle = (tagId: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tagId) 
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    );
+  };
+
+  const clearAllTags = () => {
+    setSelectedTags([]);
+  };
+
   return (
-    <div className="min-h-screen bg-background dark:bg-gray-900 font-body transition-colors">
+    <div className="min-h-screen bg-gradient-to-br from-background via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 font-body transition-all duration-300">
       {/* Header */}
       <Header
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onSearchOpen={() => setSearchOpen(true)}
+        onCalculatorSelect={handleCalculatorClick}
         sidebarOpen={sidebarOpen}
         onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
       />
@@ -70,6 +116,23 @@ function App() {
             {/* Category Header */}
             <CategoryHeader category={activeTab} count={filteredCalculators.length} />
 
+            {/* Show Popular and Recent for 'all' tab */}
+            {activeTab === 'all' && (
+              <>
+                <PopularCalculators onCalculatorClick={handleCalculatorClick} />
+                <RecentCalculators onCalculatorClick={handleCalculatorClick} />
+              </>
+            )}
+
+            {/* Tag Filter */}
+            {activeTab !== 'all' && activeTab !== 'pro' && (
+              <TagFilter
+                selectedTags={selectedTags}
+                onTagToggle={handleTagToggle}
+                onClearAll={clearAllTags}
+              />
+            )}
+
             {/* Calculator Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredCalculators.map((calculator, index) => (
@@ -89,14 +152,14 @@ function App() {
             {/* Empty State */}
             {filteredCalculators.length === 0 && (
               <div className="text-center py-12">
-                <div className="w-24 h-24 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                  <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                <div className="w-24 h-24 mx-auto bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                  <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-full" />
                 </div>
                 <h3 className="text-lg font-heading font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  No calculators found
+                  {t('noCalculatorsFound')}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-                  Try selecting a different category or use the search function to find specific calculators.
+                  {t('tryDifferentCategory')}
                 </p>
               </div>
             )}
@@ -108,13 +171,6 @@ function App() {
       <BottomNavMobile
         activeTab={activeTab}
         onTabChange={setActiveTab}
-      />
-
-      {/* Search Overlay */}
-      <SearchOverlay
-        isOpen={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onCalculatorSelect={handleCalculatorClick}
       />
     </div>
   );
