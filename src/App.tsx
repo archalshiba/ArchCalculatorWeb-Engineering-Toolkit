@@ -13,6 +13,7 @@ import { calculators, proCalculators, CalculatorItem } from './data/calculators'
 import { themes } from './data/themes';
 import { ConcretePartSelector } from './features/ConcretePartSelector';
 import { RectangularColumnCalculator } from './features/RectangularColumnCalculator';
+import { PartTypeSelector } from './features/PartTypeSelector';
 
 function App() {
   const { t } = useLanguage();
@@ -22,6 +23,7 @@ function App() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showConcreteSelector, setShowConcreteSelector] = useState(false);
   const [selectedConcretePart, setSelectedConcretePart] = useState<string | null>(null);
+  const [selectedPartType, setSelectedPartType] = useState<string | null>(null);
 
   // Apply theme on mount and when theme changes
   useEffect(() => {
@@ -95,10 +97,25 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-background via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 font-body transition-all duration-300">
       {/* Show Concrete Selector or Calculator if active */}
       {showConcreteSelector ? (
-        selectedConcretePart === 'columns' ? (
-          <RectangularColumnCalculator />
+        selectedConcretePart && !selectedPartType ? (
+          <PartTypeSelector
+            partId={selectedConcretePart}
+            onSelect={typeId => setSelectedPartType(typeId)}
+            onBack={() => setSelectedConcretePart(null)}
+          />
+        ) : selectedConcretePart && selectedPartType ? (
+          selectedConcretePart === 'columns' && selectedPartType === 'rectangular' ? (
+            <RectangularColumnCalculator />
+          ) : (
+            <div className="max-w-xl mx-auto p-6 text-center">
+              <h2 className="text-2xl font-bold mb-4">{selectedPartType.replace(/^[a-z]/, c => c.toUpperCase())} Calculator Coming Soon</h2>
+              <button className="mt-4 text-teal-600 underline" onClick={() => setSelectedPartType(null)}>
+                &larr; Back to Type Selection
+              </button>
+            </div>
+          )
         ) : (
-          <ConcretePartSelector onSelect={(part: string) => setSelectedConcretePart(part)} />
+          <ConcretePartSelector onSelect={part => setSelectedConcretePart(part)} />
         )
       ) : (
         <>

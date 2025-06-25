@@ -1,14 +1,10 @@
-ArchCalculatorWeb-Engineering-Toolkit
+# How to Run the App
 
-## Running the App
-
-To run the development server locally:
-
-1. Install dependencies (if you haven't already):
+1. Install dependencies:
    ```bash
    npm install
    ```
-2. Start the Vite development server:
+2. Start the development server:
    ```bash
    npm run dev
    ```
