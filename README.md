@@ -11,3 +11,6 @@
 3. Open your browser and go to the URL shown in the terminal (usually http://localhost:5173).
 
 The app will automatically reload if you make changes to the code.
+
+npm install
+npm run dev

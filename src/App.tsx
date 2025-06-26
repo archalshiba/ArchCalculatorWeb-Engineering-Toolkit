@@ -12,6 +12,7 @@ import { usePreferences } from './hooks/usePreferences';
 import { calculators, proCalculators, CalculatorItem } from './data/calculators';
 import { themes } from './data/themes';
 import { ConcretePartSelector } from './features/ConcretePartSelector';
+import { PARTS } from './features/ConcretePartSelector';
 import { RectangularColumnCalculator } from './features/RectangularColumnCalculator';
 import { PartTypeSelector } from './features/PartTypeSelector';
 
@@ -93,6 +94,13 @@ function App() {
     setSelectedTags([]);
   };
 
+  // Add this helper to get the part label by id
+  function getPartLabel(partId: string | null) {
+    if (!partId) return '';
+    const part = PARTS.find((p: { id: string }) => p.id === partId);
+    return part ? part.label : '';
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 font-body transition-all duration-300">
       {/* Show Concrete Selector or Calculator if active */}
@@ -100,12 +108,13 @@ function App() {
         selectedConcretePart && !selectedPartType ? (
           <PartTypeSelector
             partId={selectedConcretePart}
+            partLabel={getPartLabel(selectedConcretePart)}
             onSelect={typeId => setSelectedPartType(typeId)}
             onBack={() => setSelectedConcretePart(null)}
           />
         ) : selectedConcretePart && selectedPartType ? (
           selectedConcretePart === 'columns' && selectedPartType === 'rectangular' ? (
-            <RectangularColumnCalculator />
+            <RectangularColumnCalculator onBack={() => setSelectedPartType(null)} />
           ) : (
             <div className="max-w-xl mx-auto p-6 text-center">
               <h2 className="text-2xl font-bold mb-4">{selectedPartType.replace(/^[a-z]/, c => c.toUpperCase())} Calculator Coming Soon</h2>
@@ -115,7 +124,7 @@ function App() {
             </div>
           )
         ) : (
-          <ConcretePartSelector onSelect={part => setSelectedConcretePart(part)} />
+          <ConcretePartSelector onSelect={part => setSelectedConcretePart(part)} onBack={() => setShowConcreteSelector(false)} />
         )
       ) : (
         <>

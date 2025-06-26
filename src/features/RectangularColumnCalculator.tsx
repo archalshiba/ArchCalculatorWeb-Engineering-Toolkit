@@ -16,7 +16,7 @@ interface Results {
   };
 }
 
-export function RectangularColumnCalculator() {
+export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) {
   const [inputs, setInputs] = useState({
     width: "",
     depth: "",
@@ -50,28 +50,70 @@ export function RectangularColumnCalculator() {
     <div className="max-w-4xl mx-auto p-4">
       {/* Header */}
       <div className="flex items-center mb-4">
-        <button className="mr-2 text-teal-500 hover:text-teal-700">
-          {/* Back arrow icon */}
-          <svg width="28" height="28" fill="none"><path d="M18 24l-8-8 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <button
+          type="button"
+          className="mr-2 text-teal-500 hover:text-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded-full"
+          aria-label="Back"
+          onClick={onBack}
+        >
+          <svg width="36" height="36" fill="none" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="17" stroke="currentColor" strokeWidth="2" fill="white" className="dark:fill-gray-900" />
+            <path d="M22 27l-9-9 9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
         <h1 className="text-2xl font-bold text-gray-800 flex-1">Rectangular Column Calculator</h1>
       </div>
       <div className="flex flex-col md:flex-row gap-8">
-        {/* SVG Diagram */}
+        {/* SVG Diagram - 3D Enhanced with Dimensions */}
         <div className="flex-1 flex justify-center items-start">
-          {/* Placeholder SVG for column with dimension lines */}
-          <svg width="180" height="260" viewBox="0 0 180 260" className="bg-gray-50 rounded-2xl shadow p-2">
-            {/* Column outline */}
-            <rect x="40" y="40" width="100" height="180" rx="12" fill="#E0F2F1" stroke="#14B8A6" strokeWidth="4"/>
-            {/* Width dimension */}
-            <line x1="40" y1="230" x2="140" y2="230" stroke="#F87171" strokeWidth="2"/>
-            <text x="90" y="250" textAnchor="middle" fill="#F87171" fontSize="14">Width (mm)</text>
-            {/* Depth dimension */}
-            <line x1="30" y1="40" x2="30" y2="220" stroke="#F87171" strokeWidth="2"/>
-            <text x="10" y="140" textAnchor="middle" fill="#F87171" fontSize="14" transform="rotate(-90 10,140)">Depth (mm)</text>
-            {/* Height dimension */}
-            <line x1="140" y1="40" x2="140" y2="220" stroke="#F59E42" strokeWidth="2"/>
-            <text x="160" y="140" textAnchor="middle" fill="#F59E42" fontSize="14" transform="rotate(-90 160,140)">Height (m)</text>
+          <svg width="260" height="340" viewBox="0 0 260 340" className="bg-gray-50 rounded-2xl shadow p-2">
+            {/* 3D body */}
+            <g>
+              {/* Main front face */}
+              <rect x="90" y="80" width="80" height="160" rx="10" fill="#2dd4bf" stroke="#0f766e" strokeWidth="5" />
+              {/* Top face */}
+              <polygon points="90,80 130,50 210,50 170,80" fill="#F87171" stroke="#b91c1c" strokeWidth="2.5" />
+              {/* Side face */}
+              <polygon points="170,80 210,50 210,210 170,240" fill="#0f766e" fillOpacity="0.12" />
+              {/* 3D effect lines */}
+              <line x1="90" y1="80" x2="170" y2="80" stroke="#0f766e" strokeWidth="2" />
+              <line x1="170" y1="80" x2="170" y2="240" stroke="#0f766e" strokeWidth="2" />
+              <line x1="90" y1="240" x2="170" y2="240" stroke="#0f766e" strokeWidth="2" />
+            </g>
+            {/* Stirrups (horizontal) */}
+            <g stroke="#F87171" strokeWidth="2.5">
+              <line x1="100" y1="100" x2="160" y2="100" />
+              <line x1="100" y1="140" x2="160" y2="140" />
+              <line x1="100" y1="180" x2="160" y2="180" />
+              <line x1="100" y1="220" x2="160" y2="220" />
+            </g>
+            {/* Longitudinal bars (vertical) */}
+            <circle cx="110" cy="95" r="5" fill="#fbbf24" />
+            <circle cx="150" cy="95" r="5" fill="#fbbf24" />
+            <circle cx="110" cy="225" r="5" fill="#fbbf24" />
+            <circle cx="150" cy="225" r="5" fill="#fbbf24" />
+            {/* Dimension lines and labels */}
+            {/* Height */}
+            <g>
+              <line x1="220" y1="80" x2="220" y2="240" stroke="#F59E42" strokeWidth="2" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+              <text x="230" y="170" fill="#F59E42" fontSize="16" textAnchor="start" alignmentBaseline="middle">Height (h)</text>
+            </g>
+            {/* Width */}
+            <g>
+              <line x1="90" y1="260" x2="170" y2="260" stroke="#F87171" strokeWidth="2" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+              <text x="130" y="278" fill="#F87171" fontSize="16" textAnchor="middle">Width (b)</text>
+            </g>
+            {/* Depth (length) */}
+            <g>
+              <line x1="170" y1="240" x2="210" y2="210" stroke="#0ea5e9" strokeWidth="2" markerStart="url(#arrow)" markerEnd="url(#arrow)" />
+              <text x="200" y="235" fill="#0ea5e9" fontSize="16" textAnchor="start">Depth (d)</text>
+            </g>
+            {/* Arrow marker definition */}
+            <defs>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L8,4 L0,8 L2,4 Z" fill="currentColor" />
+              </marker>
+            </defs>
           </svg>
         </div>
         {/* Input Form */}
