@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
 const CONCRETE_STRENGTHS: number[] = [20, 25, 30, 35, 40];
 
