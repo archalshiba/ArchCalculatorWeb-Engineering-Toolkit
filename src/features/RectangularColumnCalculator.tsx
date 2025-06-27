@@ -21,14 +21,18 @@ const STANDARD_MIXES = [
   { code: "1:1.5:3", label: "M20 (1:1.5:3)", cement: 1, sand: 1.5, aggregate: 3 },
   { code: "1:2:4", label: "M15 (1:2:4)", cement: 1, sand: 2, aggregate: 4 },
   { code: "1:3:6", label: "M10 (1:3:6)", cement: 1, sand: 3, aggregate: 6 },
+  { code: "1:1:2", label: "M25 (1:1:2)", cement: 1, sand: 1, aggregate: 2 },
+  { code: "1:1.2:2.4", label: "M30 (1:1.2:2.4)", cement: 1, sand: 1.2, aggregate: 2.4 },
   { code: "custom", label: "Custom Mix", cement: 1, sand: 2, aggregate: 4 },
 ];
 
-const MIX_RECOMMENDATIONS: Record<string, { wc: [number, number], admixture: [number, number], wcDefault: number, admixtureDefault: number }> = {
-  "1:1.5:3": { wc: [0.45, 0.55], admixture: [0, 1], wcDefault: 0.5, admixtureDefault: 0 }, // M20
-  "1:2:4": { wc: [0.5, 0.6], admixture: [0, 1], wcDefault: 0.55, admixtureDefault: 0 }, // M15
-  "1:3:6": { wc: [0.55, 0.65], admixture: [0, 1], wcDefault: 0.6, admixtureDefault: 0 }, // M10
-  "custom": { wc: [0.4, 0.7], admixture: [0, 2], wcDefault: 0.5, admixtureDefault: 0 },
+const MIX_RECOMMENDATIONS: Record<string, { wc: [number, number], admixture: [number, number], wcDefault: number, admixtureDefault: number, dryVolume: [number, number], dryVolumeDefault: number, wastage: [number, number], wastageDefault: number }> = {
+  "1:1.5:3": { wc: [0.45, 0.55], admixture: [0, 1], wcDefault: 0.5, admixtureDefault: 0, dryVolume: [1.51, 1.53], dryVolumeDefault: 1.52, wastage: [2, 3], wastageDefault: 2.5 }, // M20
+  "1:2:4": { wc: [0.5, 0.6], admixture: [0, 1], wcDefault: 0.55, admixtureDefault: 0, dryVolume: [1.53, 1.55], dryVolumeDefault: 1.54, wastage: [3, 5], wastageDefault: 4 }, // M15
+  "1:3:6": { wc: [0.55, 0.65], admixture: [0, 1], wcDefault: 0.6, admixtureDefault: 0, dryVolume: [1.56, 1.58], dryVolumeDefault: 1.57, wastage: [5, 7], wastageDefault: 6 }, // M10
+  "1:1:2": { wc: [0.4, 0.5], admixture: [0, 1], wcDefault: 0.45, admixtureDefault: 0, dryVolume: [1.49, 1.51], dryVolumeDefault: 1.5, wastage: [2, 3], wastageDefault: 2.5 }, // M25
+  "1:1.2:2.4": { wc: [0.38, 0.48], admixture: [0, 1], wcDefault: 0.43, admixtureDefault: 0, dryVolume: [1.48, 1.5], dryVolumeDefault: 1.49, wastage: [2, 3], wastageDefault: 2.5 }, // M30
+  "custom": { wc: [0.4, 0.7], admixture: [0, 2], wcDefault: 0.5, admixtureDefault: 0, dryVolume: [1.5, 1.6], dryVolumeDefault: 1.54, wastage: [2, 7], wastageDefault: 4 },
 };
 
 // --- Helper for tracking changed fields ---
@@ -196,9 +200,35 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
       mix: mixCode,
       wcRatio: rec.wcDefault.toString(),
       admixture: rec.admixtureDefault.toString(),
+      dryVolumeFactor: rec.dryVolumeDefault.toString(),
+      wastage: rec.wastageDefault.toString(),
       ...(mixCode !== "custom" ? {} : { customCement: "1", customSand: "2", customAggregate: "4" })
     }));
   }
+
+  const setExample = (mixCode: string) => {
+    // Example values for each mix
+    const examples: Record<string, any> = {
+      "1:1.5:3": { width: "30", depth: "50", height: "3", numColumns: "2", mix: "1:1.5:3" },
+      "1:2:4": { width: "25", depth: "40", height: "3", numColumns: "2", mix: "1:2:4" },
+      "1:3:6": { width: "20", depth: "30", height: "2.5", numColumns: "1", mix: "1:3:6" },
+      "1:1:2": { width: "35", depth: "60", height: "3.2", numColumns: "2", mix: "1:1:2" },
+      "1:1.2:2.4": { width: "40", depth: "60", height: "3.5", numColumns: "2", mix: "1:1.2:2.4" },
+    };
+    const rec = MIX_RECOMMENDATIONS[mixCode] || MIX_RECOMMENDATIONS["custom"];
+    const ex = examples[mixCode];
+    if (ex) {
+      setInputs(inputs => ({
+        ...inputs,
+        ...ex,
+        wcRatio: rec.wcDefault.toString(),
+        admixture: rec.admixtureDefault.toString(),
+        dryVolumeFactor: rec.dryVolumeDefault.toString(),
+        wastage: rec.wastageDefault.toString(),
+        ...(mixCode !== "custom" ? {} : { customCement: "1", customSand: "2", customAggregate: "4" })
+      }));
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -218,14 +248,6 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
         <h1 className="text-2xl font-bold text-gray-800 flex-1">Rectangular Column Calculator</h1>
       </div>
       <div className="flex flex-col md:flex-row gap-8">
-        <button
-          className="mb-4 self-end px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-xs font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition w-fit"
-          type="button"
-          onClick={() => setShowReference(true)}
-        >
-          Reference Table / Docs
-        </button>
-        <ReferenceTableModal open={showReference} onClose={() => setShowReference(false)} />
         {/* SVG 3D diagram with dimensions (already implemented) */}
         <div className="flex-1 flex justify-center items-start">
           <svg width="260" height="340" viewBox="0 0 260 340" className="bg-gray-50 rounded-2xl shadow p-2">
@@ -371,17 +393,33 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
           {/* Other Parameters */}
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="block text-xs text-gray-500">Dry Volume Factor</label>
+              <label className="block text-xs text-gray-500">Dry Volume Factor
+                <span className="ml-1 cursor-help" title={`Recommended for this mix: ${MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[0]}–${MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[1]}`}>ⓘ</span>
+                <button type="button" className="ml-1 text-teal-600 underline text-xs" title="Why?" onClick={() => alert('Dry Volume Factor accounts for bulking due to voids and handling. Richer mixes have slightly lower factors. See IS 456/ACI 211.')}>Why?</button>
+              </label>
               <input type="number" step="0.01" min="1" max="2" className="w-full border rounded-xl p-2" value={inputs.dryVolumeFactor} onChange={e => setInputs({ ...inputs, dryVolumeFactor: e.target.value })} />
+              <div className="text-xs text-gray-400 mt-1">Recommended: {MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[0]}–{MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[1]}</div>
+              {(Number(inputs.dryVolumeFactor) < MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[0] || Number(inputs.dryVolumeFactor) > MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[1]) ? (
+                <div className="text-yellow-600 text-xs mt-1">Dry Volume Factor is outside the typical range for this mix.</div>
+              ) : null}
               {errors.dryVolumeFactor && <div className="text-red-500 text-xs mt-1">{errors.dryVolumeFactor}</div>}
             </div>
             <div>
-              <label className="block text-xs text-gray-500">Wastage %</label>
+              <label className="block text-xs text-gray-500">Wastage %
+                <span className="ml-1 cursor-help" title={`Recommended for this mix: ${MIX_RECOMMENDATIONS[inputs.mix]?.wastage[0]}–${MIX_RECOMMENDATIONS[inputs.mix]?.wastage[1]}%`}>ⓘ</span>
+                <button type="button" className="ml-1 text-teal-600 underline text-xs" title="Why?" onClick={() => alert('Wastage covers spillage, over-mixing, and site losses. Leaner mixes and rougher sites may have higher wastage.')}>Why?</button>
+              </label>
               <input type="number" step="0.1" min="0" max="20" className="w-full border rounded-xl p-2" value={inputs.wastage} onChange={e => setInputs({ ...inputs, wastage: e.target.value })} />
+              <div className="text-xs text-gray-400 mt-1">Recommended: {MIX_RECOMMENDATIONS[inputs.mix]?.wastage[0]}–{MIX_RECOMMENDATIONS[inputs.mix]?.wastage[1]}%</div>
+              {(Number(inputs.wastage) < MIX_RECOMMENDATIONS[inputs.mix]?.wastage[0] || Number(inputs.wastage) > MIX_RECOMMENDATIONS[inputs.mix]?.wastage[1]) ? (
+                <div className="text-yellow-600 text-xs mt-1">Wastage % is outside the typical range for this mix.</div>
+              ) : null}
               {errors.wastage && <div className="text-red-500 text-xs mt-1">{errors.wastage}</div>}
             </div>
             <div>
-              <label className="block text-xs text-gray-500">Concrete Rate (per m³)</label>
+              <label className="block text-xs text-gray-500">Concrete Rate (per m³)
+                <button type="button" className="ml-1 text-teal-600 underline text-xs" title="Why?" onClick={() => alert('The rate is the cost per m³ of concrete, including materials, labor, and overheads.')}>Why?</button>
+              </label>
               <input type="number" min="0" className="w-full border rounded-xl p-2" value={inputs.rate} onChange={e => setInputs({ ...inputs, rate: e.target.value })} />
               {errors.rate && <div className="text-red-500 text-xs mt-1">{errors.rate}</div>}
             </div>
@@ -574,8 +612,17 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
           )}
         </div>
       )}
-      {/* Reference Table Modal */}
-      <ReferenceTableModal open={showReference} onClose={() => setShowReference(false)} />
+      {/* Reference Table Button with Icon */}
+      <button
+        className="mb-4 self-end px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-xs font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition w-fit flex items-center gap-1"
+        type="button"
+        onClick={() => setShowReference(true)}
+      >
+        <svg width="18" height="18" fill="none" viewBox="0 0 20 20" className="inline-block align-middle"><rect x="3" y="4" width="14" height="12" rx="2" fill="#0f766e"/><path d="M7 8h6M7 12h4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
+        Reference Table / Docs
+      </button>
+      {/* ReferenceTableModal: add icons, more mixes, tooltips, and expandable explanations */}
+      <ReferenceTableModal open={showReference} onClose={() => setShowReference(false)} setExample={setExample} />
     </div>
   );
 }
@@ -682,31 +729,66 @@ function StepCard({ title, icon, formula, explanation, children }: { title: stri
 }
 
 // --- Reference Table Modal for Standard Mixes ---
-function ReferenceTableModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+function ReferenceTableModal({ open, onClose, setExample }: { open: boolean, onClose: () => void, setExample?: (mixCode: string) => void }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 max-w-lg w-full relative">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 max-w-2xl w-full relative">
         <button className="absolute top-2 right-2 text-gray-400 hover:text-teal-600" onClick={onClose} aria-label="Close">✕</button>
-        <h2 className="text-lg font-bold mb-2">Standard Mixes & Recommendations</h2>
-        <table className="w-full text-xs border">
+        <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
+          <svg width="22" height="22" fill="none" viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="12" rx="2" fill="#0f766e"/><path d="M7 8h6M7 12h4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          Standard Mixes & Recommendations
+        </h2>
+        <table className="w-full text-xs border mb-2">
           <thead>
             <tr className="bg-gray-100 dark:bg-gray-800">
               <th className="p-2 border">Mix</th>
-              <th className="p-2 border">W/C Range</th>
-              <th className="p-2 border">Admixture %</th>
+              <th className="p-2 border">W/C Range <span className="cursor-help" title="Water/Cement ratio affects strength and workability.">ⓘ</span></th>
+              <th className="p-2 border">Admixture % <span className="cursor-help" title="Admixtures improve workability, setting, or durability.">ⓘ</span></th>
+              <th className="p-2 border">Dry Vol. <span className="cursor-help" title="Dry Volume Factor accounts for bulking.">ⓘ</span></th>
+              <th className="p-2 border">Wastage % <span className="cursor-help" title="Covers site losses.">ⓘ</span></th>
               <th className="p-2 border">Notes</th>
+              <th className="p-2 border">Example</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td className="border p-1">M20 (1:1.5:3)</td><td className="border p-1">0.45–0.55</td><td className="border p-1">0–1</td><td className="border p-1">General RCC, beams, slabs</td></tr>
-            <tr><td className="border p-1">M15 (1:2:4)</td><td className="border p-1">0.50–0.60</td><td className="border p-1">0–1</td><td className="border p-1">Footings, non-structural</td></tr>
-            <tr><td className="border p-1">M10 (1:3:6)</td><td className="border p-1">0.55–0.65</td><td className="border p-1">0–1</td><td className="border p-1">Blinding, fill</td></tr>
-            <tr><td className="border p-1">Custom</td><td className="border p-1">0.40–0.70</td><td className="border p-1">0–2</td><td className="border p-1">User-defined</td></tr>
+            {Object.entries(MIX_RECOMMENDATIONS).filter(([code]) => code !== "custom").map(([code, rec]) => (
+              <tr key={code} className="hover:bg-teal-50">
+                <td className="border p-1 font-semibold flex items-center gap-1">
+                  {code === "1:1.5:3" && <span title="M20"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#0f766e" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#0f766e">20</text></svg></span>}
+                  {code === "1:2:4" && <span title="M15"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f59e42" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#f59e42">15</text></svg></span>}
+                  {code === "1:3:6" && <span title="M10"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#f87171">10</text></svg></span>}
+                  {code === "1:1:2" && <span title="M25"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#14b8a6" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#14b8a6">25</text></svg></span>}
+                  {code === "1:1.2:2.4" && <span title="M30"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#a21caf" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#a21caf">30</text></svg></span>}
+                  {code}
+                </td>
+                <td className="border p-1">{rec.wc[0]}–{rec.wc[1]}</td>
+                <td className="border p-1">{rec.admixture[0]}–{rec.admixture[1]}</td>
+                <td className="border p-1">{rec.dryVolume[0]}–{rec.dryVolume[1]}</td>
+                <td className="border p-1">{rec.wastage[0]}–{rec.wastage[1]}</td>
+                <td className="border p-1">
+                  <button type="button" className="text-teal-600 underline text-xs" onClick={() => setExpanded(expanded === code ? null : code)}>Details</button>
+                </td>
+                <td className="border p-1">
+                  <button type="button" className="text-blue-600 underline text-xs" onClick={() => setExample && setExample(code)}>Show Example</button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
+        {expanded && (
+          <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/30 rounded text-xs">
+            <b>Explanation for {expanded}:</b> <br />
+            {expanded === "1:1.5:3" && "M20: Used for RCC, beams, slabs. Moderate strength. Dry volume and wastage are lower due to richer mix."}
+            {expanded === "1:2:4" && "M15: Used for footings, non-structural. Slightly higher bulking and wastage."}
+            {expanded === "1:3:6" && "M10: Used for blinding, fill. Lean mix, higher wastage."}
+            {expanded === "1:1:2" && "M25: High strength, used for columns, slabs. Lower dry volume factor."}
+            {expanded === "1:1.2:2.4" && "M30: High strength, used for structural elements. Very low bulking/wastage."}
+          </div>
+        )}
         <div className="mt-3 text-xs text-gray-500 dark:text-gray-300">
-          <b>Sources:</b> <a href="https://www.cement.org/" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">ACI</a>, <a href="https://www.bis.gov.in/" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">IS 456</a>, <a href="https://www.cement.org/learn/concrete-technology/concrete-construction/concrete-mix-design" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">Mix Design Guide</a>
+          <b>Sources:</b> <a href="https://www.cement.org/learn/concrete-technology/concrete-construction/concrete-mix-design" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">ACI 211</a>, <a href="https://www.bis.gov.in/standarddetails/IS/456" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">IS 456</a>, <a href="https://www.cement.org/" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">Cement.org</a>
         </div>
       </div>
     </div>
