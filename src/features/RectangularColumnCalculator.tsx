@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const CONCRETE_STRENGTHS: number[] = [20, 25, 30, 35, 40];
 
@@ -26,6 +26,22 @@ const STANDARD_MIXES = [
   { code: "custom", label: "Custom Mix", cement: 1, sand: 2, aggregate: 4 },
 ];
 
+const MIX_RECOMMENDATIONS: Record<string, { wc: [number, number], admixture: [number, number], wcDefault: number, admixtureDefault: number }> = {
+  "1:1.5:3": { wc: [0.45, 0.55], admixture: [0, 1], wcDefault: 0.5, admixtureDefault: 0 }, // M20
+  "1:2:4": { wc: [0.5, 0.6], admixture: [0, 1], wcDefault: 0.55, admixtureDefault: 0 }, // M15
+  "1:3:6": { wc: [0.55, 0.65], admixture: [0, 1], wcDefault: 0.6, admixtureDefault: 0 }, // M10
+  "custom": { wc: [0.4, 0.7], admixture: [0, 2], wcDefault: 0.5, admixtureDefault: 0 },
+};
+
+// --- Helper for tracking changed fields ---
+function getChangedFields(inputs: any, prevInputs: any) {
+  const changed: Record<string, boolean> = {};
+  for (const key in inputs) {
+    if (inputs[key] !== prevInputs[key]) changed[key] = true;
+  }
+  return changed;
+}
+
 export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) {
   const [inputs, setInputs] = useState({
     width: "",
@@ -43,9 +59,16 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
     rate: "",
   });
   const [results, setResults] = useState<Results | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [prevInputs, setPrevInputs] = useState(inputs);
+  const [changedFields, setChangedFields] = useState<Record<string, boolean>>({});
+  const [showReference, setShowReference] = useState(false);
+
+  useEffect(() => {
+    setChangedFields(getChangedFields(inputs, prevInputs));
+    setPrevInputs(inputs);
+  }, [inputs]);
 
   function calculate() {
     // Parse inputs
@@ -168,6 +191,17 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
     setErrors({});
   }
 
+  function handleMixChange(mixCode: string) {
+    const rec = MIX_RECOMMENDATIONS[mixCode] || MIX_RECOMMENDATIONS["custom"];
+    setInputs(inputs => ({
+      ...inputs,
+      mix: mixCode,
+      wcRatio: rec.wcDefault.toString(),
+      admixture: rec.admixtureDefault.toString(),
+      ...(mixCode !== "custom" ? {} : { customCement: "1", customSand: "2", customAggregate: "4" })
+    }));
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       {/* Header */}
@@ -186,6 +220,14 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
         <h1 className="text-2xl font-bold text-gray-800 flex-1">Rectangular Column Calculator</h1>
       </div>
       <div className="flex flex-col md:flex-row gap-8">
+        <button
+          className="mb-4 self-end px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-xs font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition w-fit"
+          type="button"
+          onClick={() => setShowReference(true)}
+        >
+          Reference Table / Docs
+        </button>
+        <ReferenceTableModal open={showReference} onClose={() => setShowReference(false)} />
         {/* SVG 3D diagram with dimensions (already implemented) */}
         <div className="flex-1 flex justify-center items-start">
           <svg width="260" height="340" viewBox="0 0 260 340" className="bg-gray-50 rounded-2xl shadow p-2">
@@ -278,7 +320,7 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
             <select
               className="w-full border rounded-xl p-2 mb-2"
               value={inputs.mix}
-              onChange={e => setInputs({ ...inputs, mix: e.target.value })}
+              onChange={e => handleMixChange(e.target.value)}
             >
               {STANDARD_MIXES.map(mix => (
                 <option key={mix.code} value={mix.code}>{mix.label}</option>
@@ -306,16 +348,24 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
             <div className="grid grid-cols-2 gap-2">
               <div className="relative">
                 <label className="block text-xs text-gray-500">Water/Cement Ratio (W/C)
-                  <span className="ml-1 cursor-help" title="Ratio of water to cement by weight. Typical range: 0.3–0.7.">ⓘ</span>
+                  <span className="ml-1 cursor-help" title={`Typical for this mix: ${MIX_RECOMMENDATIONS[inputs.mix]?.wc[0]}–${MIX_RECOMMENDATIONS[inputs.mix]?.wc[1]}`}>ⓘ</span>
                 </label>
                 <input type="number" step="0.01" min="0.3" max="0.7" className="w-full border rounded-xl p-2" value={inputs.wcRatio} onChange={e => setInputs({ ...inputs, wcRatio: e.target.value })} />
+                <div className="text-xs text-gray-400 mt-1">Recommended: {MIX_RECOMMENDATIONS[inputs.mix]?.wc[0]}–{MIX_RECOMMENDATIONS[inputs.mix]?.wc[1]}</div>
+                {Number(inputs.wcRatio) < MIX_RECOMMENDATIONS[inputs.mix]?.wc[0] || Number(inputs.wcRatio) > MIX_RECOMMENDATIONS[inputs.mix]?.wc[1] ? (
+                  <div className="text-yellow-600 text-xs mt-1">W/C ratio is outside the typical range for this mix. High W/C reduces strength.</div>
+                ) : null}
                 {errors.wcRatio && <div className="text-red-500 text-xs mt-1">{errors.wcRatio}</div>}
               </div>
               <div className="relative">
                 <label className="block text-xs text-gray-500">Admixture %
-                  <span className="ml-1 cursor-help" title="Percentage of cement weight. Used for plasticizers, retarders, etc.">ⓘ</span>
+                  <span className="ml-1 cursor-help" title={`Typical for this mix: ${MIX_RECOMMENDATIONS[inputs.mix]?.admixture[0]}–${MIX_RECOMMENDATIONS[inputs.mix]?.admixture[1]}`}>ⓘ</span>
                 </label>
                 <input type="number" step="0.1" min="0" max="10" className="w-full border rounded-xl p-2" value={inputs.admixture} onChange={e => setInputs({ ...inputs, admixture: e.target.value })} />
+                <div className="text-xs text-gray-400 mt-1">Recommended: {MIX_RECOMMENDATIONS[inputs.mix]?.admixture[0]}–{MIX_RECOMMENDATIONS[inputs.mix]?.admixture[1]}</div>
+                {Number(inputs.admixture) < MIX_RECOMMENDATIONS[inputs.mix]?.admixture[0] || Number(inputs.admixture) > MIX_RECOMMENDATIONS[inputs.mix]?.admixture[1] ? (
+                  <div className="text-yellow-600 text-xs mt-1">Admixture % is outside the typical range for this mix.</div>
+                ) : null}
                 {errors.admixture && <div className="text-red-500 text-xs mt-1">{errors.admixture}</div>}
               </div>
             </div>
@@ -381,22 +431,38 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>Wet Volume:</div>
-            <div className="font-mono">{results.volume.toFixed(3)} m³</div>
-            <div>Dry Volume:</div>
-            <div className="font-mono">{results.dryVolume?.toFixed(3)} m³</div>
-            <div>Cement:</div>
-            <div className="font-mono">{results.cementBags.toFixed(2)} bags ({(results.cementBags * 50).toFixed(0)} kg)</div>
-            <div>Sand:</div>
-            <div className="font-mono">{results.sand.toFixed(3)} m³</div>
-            <div>Aggregate:</div>
-            <div className="font-mono">{results.gravel.toFixed(3)} m³</div>
-            <div>Water:</div>
-            <div className="font-mono">{results.water.toFixed(1)} kg</div>
-            <div>Admixture:</div>
-            <div className="font-mono">{results.admixture?.toFixed(2)} kg</div>
+            <div className={changedFields.width || changedFields.depth || changedFields.height || changedFields.numColumns ? "font-bold text-teal-700" : undefined}>Wet Volume:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: width × depth × height × number of columns = {((Number(inputs.width)/100)*(Number(inputs.depth)/100)*Number(inputs.height)*Number(inputs.numColumns)).toFixed(3)} m³">[?]</span>
+            </div>
+            <div className={changedFields.width || changedFields.depth || changedFields.height || changedFields.numColumns ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.volume.toFixed(3)} m³</div>
+            <div className={changedFields.dryVolumeFactor || changedFields.wastage ? "font-bold text-teal-700" : undefined}>Dry Volume:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: Wet Volume × Dry Volume Factor × (1 + Wastage %)">[?]</span>
+            </div>
+            <div className={changedFields.dryVolumeFactor || changedFields.wastage ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.dryVolume?.toFixed(3)} m³</div>
+            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-bold text-teal-700" : undefined}>Cement:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (Cement parts / Total parts) × Dry Volume / 0.035 (bag volume)">[?]</span>
+            </div>
+            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.cementBags.toFixed(2)} bags ({(results.cementBags * 50).toFixed(0)} kg)</div>
+            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-bold text-teal-700" : undefined}>Sand:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (Sand parts / Total parts) × Dry Volume">[?]</span>
+            </div>
+            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.sand.toFixed(3)} m³</div>
+            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-bold text-teal-700" : undefined}>Aggregate:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (Aggregate parts / Total parts) × Dry Volume">[?]</span>
+            </div>
+            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.gravel.toFixed(3)} m³</div>
+            <div className={changedFields.wcRatio ? "font-bold text-teal-700" : undefined}>Water:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: W/C × Cement Weight">[?]</span>
+            </div>
+            <div className={changedFields.wcRatio ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.water.toFixed(1)} kg</div>
+            <div className={changedFields.admixture ? "font-bold text-teal-700" : undefined}>Admixture:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (Admixture % / 100) × Cement Weight">[?]</span>
+            </div>
+            <div className={changedFields.admixture ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.admixture?.toFixed(2)} kg</div>
             {results.cost !== null && (
-              <><div>Estimated Cost:</div><div className="font-mono">{results.cost?.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}</div></>
+              <><div className={changedFields.rate ? "font-bold text-teal-700" : undefined}>Estimated Cost:
+                <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: Dry Volume × Rate">[?]</span>
+              </div><div className={changedFields.rate ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.cost?.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}</div></>
             )}
           </div>
           <div className="mt-4">
@@ -429,26 +495,63 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
               </div>
               <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/30 rounded">
                 <span className="font-semibold">Step-by-Step Explanation:</span>
-                <ol className="ml-4 list-decimal space-y-2">
-                  <li><b>Convert dimensions to meters:</b> <br />Width = {inputs.width} cm = {(Number(inputs.width)/100).toFixed(2)} m<br />Depth = {inputs.depth} cm = {(Number(inputs.depth)/100).toFixed(2)} m</li>
-                  <li><b>Calculate volume per column:</b> <br />V = width × depth × height<br />= {(Number(inputs.width)/100).toFixed(2)} × {(Number(inputs.depth)/100).toFixed(2)} × {inputs.height} = {((Number(inputs.width)/100)*(Number(inputs.depth)/100)*Number(inputs.height)).toFixed(3)} m³</li>
-                  <li><b>Total wet volume:</b> <br />Wet Volume = volume per column × number of columns<br />= {((Number(inputs.width)/100)*(Number(inputs.depth)/100)*Number(inputs.height)).toFixed(3)} × {inputs.numColumns} = <b>{results.volume.toFixed(3)} m³</b></li>
-                  <li><b>Calculate dry volume:</b> <br />Dry Volume = Wet Volume × Dry Volume Factor × (1 + Wastage %)<br />= {results.volume.toFixed(3)} × {inputs.dryVolumeFactor} × (1 + {Number(inputs.wastage)/100}) = {results.dryVolume?.toFixed(3)} m³</li>
-                  <li><b>Mix ratio:</b> <br />Cement : Sand : Aggregate = {results.proportions.cement}:{results.proportions.sand}:{results.proportions.gravel} (Total parts = {results.proportions.cement + results.proportions.sand + results.proportions.gravel})</li>
-                  <li><b>Material volumes:</b> <br />Cement = (Cement parts / Total parts) × Dry Volume<br />= ({results.proportions.cement} / {results.proportions.cement + results.proportions.sand + results.proportions.gravel}) × {results.dryVolume.toFixed(3)} = {((results.proportions.cement/(results.proportions.cement+results.proportions.sand+results.proportions.gravel))*results.dryVolume).toFixed(3)} m³<br />Sand = (Sand parts / Total parts) × Dry Volume = {((results.proportions.sand/(results.proportions.cement+results.proportions.sand+results.proportions.gravel))*results.dryVolume).toFixed(3)} m³<br />Aggregate = (Aggregate parts / Total parts) × Dry Volume = {((results.proportions.gravel/(results.proportions.cement+results.proportions.sand+results.proportions.gravel))*results.dryVolume).toFixed(3)} m³</li>
-                  <li><b>Cement weight:</b> <br />Cement Weight = Cement Volume × 1440 (kg/m³)<br />= {((results.proportions.cement/(results.proportions.cement+results.proportions.sand+results.proportions.gravel))*results.dryVolume).toFixed(3)} × 1440 = {(results.cementBags*50).toFixed(1)} kg</li>
-                  <li><b>Cement bags:</b> <br />Cement Bags = Cement Weight / 50 (kg per bag)<br />= {(results.cementBags*50).toFixed(1)} / 50 = {results.cementBags.toFixed(2)} bags</li>
-                  <li><b>Water required:</b> <br />Water = W/C × Cement Weight<br />= {inputs.wcRatio} × {(results.cementBags*50).toFixed(1)} = {results.water.toFixed(1)} kg</li>
-                  <li><b>Admixture required:</b> <br />Admixture = (Admixture % / 100) × Cement Weight<br />= {inputs.admixture} % × {(results.cementBags*50).toFixed(1)} = {results.admixture?.toFixed(2)} kg</li>
-                  {results.cost !== null && <li><b>Estimated Cost:</b> <br />Cost = Dry Volume × Rate<br />= {results.dryVolume?.toFixed(3)} × {inputs.rate} = {results.cost?.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}</li>}
-                </ol>
-                <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                  <b>Notes:</b> <br />
-                  - Dry volume factor accounts for bulking and voids in aggregates.<br />
-                  - Wastage covers spillage, handling, and site loss.<br />
-                  - 1 bag cement = 50 kg = 0.035 m³ (approx).<br />
-                  - Water/cement ratio affects strength and workability.<br />
-                  - Admixture is optional and depends on mix design.
+                <div>
+                  <StepCard
+                    title="Convert dimensions to meters"
+                    icon={<span className="text-lg">📏</span>}
+                    formula={`Width = ${inputs.width} cm = ${(Number(inputs.width)/100).toFixed(2)} m, Depth = ${inputs.depth} cm = ${(Number(inputs.depth)/100).toFixed(2)} m`}
+                    explanation="All calculations use SI units (meters)."
+                  />
+                  <StepCard
+                    title="Calculate volume per column"
+                    icon={<span className="text-lg">🧮</span>}
+                    formula={`V = width × depth × height = ${(Number(inputs.width)/100).toFixed(2)} × ${(Number(inputs.depth)/100).toFixed(2)} × ${inputs.height} = ${((Number(inputs.width)/100)*(Number(inputs.depth)/100)*Number(inputs.height)).toFixed(3)} m³`}
+                    explanation="This is the net volume of one column."
+                  />
+                  <StepCard
+                    title="Total wet volume"
+                    icon={<span className="text-lg">💧</span>}
+                    formula={`Wet Volume = volume per column × number of columns = ${((Number(inputs.width)/100)*(Number(inputs.depth)/100)*Number(inputs.height)).toFixed(3)} × ${inputs.numColumns} = ${results.volume.toFixed(3)} m³`}
+                    explanation="Total concrete required for all columns before bulking/wastage."
+                  />
+                  <StepCard
+                    title="Calculate dry volume"
+                    icon={<span className="text-lg">🌫️</span>}
+                    formula={`Dry Volume = Wet Volume × Dry Volume Factor × (1 + Wastage %) = ${results.volume.toFixed(3)} × ${inputs.dryVolumeFactor} × (1 + ${Number(inputs.wastage)/100}) = ${results.dryVolume?.toFixed(3)} m³`}
+                    explanation="Accounts for bulking and site wastage."
+                  />
+                  <StepCard
+                    title="Mix ratio and material volumes"
+                    icon={<span className="text-lg">⚖️</span>}
+                    formula={`Cement:Sand:Aggregate = ${results.proportions.cement}:${results.proportions.sand}:${results.proportions.gravel}`}
+                    explanation={`Material volumes are calculated as (part/total) × dry volume.`}
+                  >
+                    <div className="text-xs mt-1">
+                      Cement = {(results.proportions.cement/(results.proportions.cement+results.proportions.sand+results.proportions.gravel)*results.dryVolume).toFixed(3)} m³<br/>
+                      Sand = {(results.proportions.sand/(results.proportions.cement+results.proportions.sand+results.proportions.gravel)*results.dryVolume).toFixed(3)} m³<br/>
+                      Aggregate = {(results.proportions.gravel/(results.proportions.cement+results.proportions.sand+results.proportions.gravel)*results.dryVolume).toFixed(3)} m³
+                    </div>
+                  </StepCard>
+                  <StepCard
+                    title="Cement weight and bags"
+                    icon={<span className="text-lg">🪨</span>}
+                    formula={`Cement Weight = Cement Volume × 1440 = ${(results.cementBags*50).toFixed(1)} kg, Bags = Weight / 50 = ${results.cementBags.toFixed(2)} bags`}
+                    explanation="1 bag = 50 kg. Density of cement ≈ 1440 kg/m³."
+                  />
+                  <StepCard
+                    title="Water and admixture required"
+                    icon={<span className="text-lg">💧</span>}
+                    formula={`Water = W/C × Cement Weight = ${inputs.wcRatio} × ${(results.cementBags*50).toFixed(1)} = ${results.water.toFixed(1)} kg, Admixture = (${inputs.admixture}% of cement) = ${results.admixture?.toFixed(2)} kg`}
+                    explanation="Water/cement ratio affects strength and workability. Admixture is optional."
+                  />
+                  {results.cost !== null && (
+                    <StepCard
+                      title="Estimated Cost"
+                      icon={<span className="text-lg">💲</span>}
+                      formula={`Cost = Dry Volume × Rate = ${results.dryVolume?.toFixed(3)} × ${inputs.rate} = ${results.cost?.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}`}
+                      explanation="Based on user-provided rate per m³."
+                    />
+                  )}
                 </div>
               </div>
               {/* Animated Pie Chart */}
@@ -473,6 +576,8 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
           )}
         </div>
       )}
+      {/* Reference Table Modal */}
+      <ReferenceTableModal open={showReference} onClose={() => setShowReference(false)} />
     </div>
   );
 }
@@ -553,6 +658,59 @@ function AnimatedPieChart({ cement, sand, aggregate, water, admixture }: { cemen
           {tooltip.pct.toFixed(1)}%
         </div>
       )}
+    </div>
+  );
+}
+
+// --- Collapsible step-by-step cards for breakdown ---
+function StepCard({ title, icon, formula, explanation, children }: { title: string, icon: React.ReactNode, formula: string, explanation: string, children?: React.ReactNode }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="mb-2 border rounded-lg bg-yellow-50 dark:bg-yellow-900/30">
+      <button type="button" className="w-full flex items-center gap-2 px-3 py-2 font-semibold text-left" onClick={() => setOpen(o => !o)}>
+        {icon}
+        <span>{title}</span>
+        <span className="ml-auto text-xs text-gray-400">{open ? "▼" : "►"}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-3 text-sm">
+          <div className="mb-1 text-xs text-gray-500">{formula}</div>
+          <div className="mb-1">{explanation}</div>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Reference Table Modal for Standard Mixes ---
+function ReferenceTableModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 max-w-lg w-full relative">
+        <button className="absolute top-2 right-2 text-gray-400 hover:text-teal-600" onClick={onClose} aria-label="Close">✕</button>
+        <h2 className="text-lg font-bold mb-2">Standard Mixes & Recommendations</h2>
+        <table className="w-full text-xs border">
+          <thead>
+            <tr className="bg-gray-100 dark:bg-gray-800">
+              <th className="p-2 border">Mix</th>
+              <th className="p-2 border">W/C Range</th>
+              <th className="p-2 border">Admixture %</th>
+              <th className="p-2 border">Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td className="border p-1">M20 (1:1.5:3)</td><td className="border p-1">0.45–0.55</td><td className="border p-1">0–1</td><td className="border p-1">General RCC, beams, slabs</td></tr>
+            <tr><td className="border p-1">M15 (1:2:4)</td><td className="border p-1">0.50–0.60</td><td className="border p-1">0–1</td><td className="border p-1">Footings, non-structural</td></tr>
+            <tr><td className="border p-1">M10 (1:3:6)</td><td className="border p-1">0.55–0.65</td><td className="border p-1">0–1</td><td className="border p-1">Blinding, fill</td></tr>
+            <tr><td className="border p-1">Custom</td><td className="border p-1">0.40–0.70</td><td className="border p-1">0–2</td><td className="border p-1">User-defined</td></tr>
+          </tbody>
+        </table>
+        <div className="mt-3 text-xs text-gray-500 dark:text-gray-300">
+          <b>Sources:</b> <a href="https://www.cement.org/" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">ACI</a>, <a href="https://www.bis.gov.in/" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">IS 456</a>, <a href="https://www.cement.org/learn/concrete-technology/concrete-construction/concrete-mix-design" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">Mix Design Guide</a>
+        </div>
+      </div>
     </div>
   );
 }
