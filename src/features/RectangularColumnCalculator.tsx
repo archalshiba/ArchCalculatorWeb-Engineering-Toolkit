@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const CONCRETE_STRENGTHS: number[] = [20, 25, 30, 35, 40];
-
 interface Results {
   volume: number;
   cementBags: number;
