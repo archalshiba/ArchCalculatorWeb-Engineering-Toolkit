@@ -15,7 +15,7 @@ interface Results {
   dryVolume: number;
   admixture: number;
   cost: number | null;
-}
+};
 
 const STANDARD_MIXES = [
   { code: "1:1.5:3", label: "M20 (1:1.5:3)", cement: 1, sand: 1.5, aggregate: 3 },
@@ -47,7 +47,6 @@ function Toast({ message, onClose }: { message: string, onClose: () => void }) {
     </div>
   );
 }
-
 // --- Helper for tracking changed fields ---
 function getChangedFields(inputs: any, prevInputs: any) {
   const changed: Record<string, boolean> = {};
@@ -379,16 +378,17 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
       <div className="flex items-center mb-4">
         <button
           type="button"
-          className="mr-2 text-teal-500 hover:text-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded-full"
-          aria-label="Back"
+          className="mr-2 text-teal-500 hover:text-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded-full focus:bg-teal-100 dark:focus:bg-teal-900"
+          aria-label="Back to calculator list"
+          tabIndex={0}
           onClick={onBack}
         >
-          <svg width="36" height="36" fill="none" viewBox="0 0 36 36">
+          <svg width="36" height="36" fill="none" viewBox="0 0 36 36" aria-hidden="true">
             <circle cx="18" cy="18" r="17" stroke="currentColor" strokeWidth="2" fill="white" className="dark:fill-gray-900" />
             <path d="M22 27l-9-9 9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <h1 className="text-2xl font-bold text-gray-800 flex-1">Rectangular Column Calculator</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 flex-1" tabIndex={0}>Rectangular Column Calculator</h1>
       </div>
       <div className="flex flex-col md:flex-row gap-8">
         {/* SVG 3D diagram with dimensions (already implemented) */}
@@ -653,6 +653,21 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
             <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-bold text-teal-700" : undefined}>Sand:
               <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (Sand parts / Total parts) × Dry Volume">[?]</span>
             </div>
+            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.sand.toFixed(3)} m³</div>
+            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-bold text-teal-700" : undefined}>Aggregate:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (Aggregate parts / Total parts) × Dry Volume">[?]</span>
+            </div>
+            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.gravel.toFixed(3)} m³</div>
+            <div className={changedFields.wcRatio ? "font-bold text-teal-700" : undefined}>Water:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: W/C × Cement Weight">[?]</span>
+            </div>
+            <div className={changedFields.wcRatio ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.water.toFixed(1)} kg</div>
+            <div className={changedFields.admixture ? "font-bold text-teal-700" : undefined}>Admixture:
+              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (% of cement weight)">[?]</span>
+            </div>
+            <div className={changedFields.admixture ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.admixture?.toFixed(2)} kg</div>
+            {results.cost !== null && <><div className="font-bold text-teal-700">Estimated Cost:</div><div className="font-mono font-bold text-teal-700">{results.cost?.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}</div></>}
+          </div>
           <button className="mt-4 text-teal-600 underline" onClick={() => setShowBreakdown(b => !b)}>
             {showBreakdown ? "Hide Breakdown" : "View Calculation Breakdown"}
           </button>
@@ -1000,8 +1015,19 @@ function ReferenceTableModal({ open, onClose, setExample }: { open: boolean, onC
             {expanded === "1:1.2:2.4" && "M30: High strength, used for structural elements. Very low bulking/wastage."}
           </div>
         )}
-        <div className="mt-3 text-xs text-gray-500 dark:text-gray-300">
-          <b>Sources:</b> <a href="https://www.cement.org/learn/concrete-technology/concrete-construction/concrete-mix-design" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">ACI 211</a>, <a href="https://www.bis.gov.in/standarddetails/IS/456" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">IS 456</a>, <a href="https://www.cement.org/" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">Cement.org</a>
+        <div className="mt-4 text-xs text-gray-500 dark:text-gray-300">
+          <b className="block mb-1">Sources & Further Reading:</b>
+          <ul className="list-none pl-0 flex flex-wrap gap-2 items-center">
+            <li>
+              <a href="https://www.cement.org/learn/concrete-technology/concrete-construction/concrete-mix-design" target="_blank" rel="noopener noreferrer" className="underline text-teal-600 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded transition-colors px-1 py-0.5" tabIndex={0} aria-label="Open ACI 211 mix design guide in new tab">ACI 211</a>
+            </li>
+            <li>
+              <a href="https://www.bis.gov.in/standarddetails/IS/456" target="_blank" rel="noopener noreferrer" className="underline text-teal-600 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded transition-colors px-1 py-0.5" tabIndex={0} aria-label="Open IS 456 standard in new tab">IS 456</a>
+            </li>
+            <li>
+              <a href="https://www.cement.org/" target="_blank" rel="noopener noreferrer" className="underline text-teal-600 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded transition-colors px-1 py-0.5" tabIndex={0} aria-label="Open Cement.org in new tab">Cement.org</a>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
