@@ -35,6 +35,19 @@ const MIX_RECOMMENDATIONS: Record<string, { wc: [number, number], admixture: [nu
   "custom": { wc: [0.4, 0.7], admixture: [0, 2], wcDefault: 0.5, admixtureDefault: 0, dryVolume: [1.5, 1.6], dryVolumeDefault: 1.54, wastage: [2, 7], wastageDefault: 4 },
 };
 
+// --- Toast Notification ---
+function Toast({ message, onClose }: { message: string, onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 2500);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+  return (
+    <div className="fixed bottom-6 right-6 z-50 bg-teal-600 text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in">
+      {message}
+    </div>
+  );
+}
+
 // --- Helper for tracking changed fields ---
 function getChangedFields(inputs: any, prevInputs: any) {
   const changed: Record<string, boolean> = {};
@@ -42,6 +55,45 @@ function getChangedFields(inputs: any, prevInputs: any) {
     if (inputs[key] !== prevInputs[key]) changed[key] = true;
   }
   return changed;
+}
+
+// --- Why Modal with focus trap for accessibility ---
+function WhyModal({ open, onClose, title, content }: { open: boolean, onClose: () => void, title: string, content: React.ReactNode }) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open && modalRef.current) {
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length) focusable[0].focus();
+      const handleKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') onClose();
+        if (e.key === 'Tab') {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      };
+      document.addEventListener('keydown', handleKey);
+      return () => document.removeEventListener('keydown', handleKey);
+    }
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" role="dialog" aria-modal="true">
+      <div ref={modalRef} className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 max-w-md w-full relative">
+        <button className="absolute top-2 right-2 text-gray-400 hover:text-teal-600" onClick={onClose} aria-label="Close Why explanation">✕</button>
+        <h2 className="text-lg font-bold mb-4">{title}</h2>
+        <div className="prose dark:prose-invert text-sm">{content}</div>
+      </div>
+    </div>
+  );
 }
 
 export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) {
@@ -66,11 +118,29 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
   const [prevInputs, setPrevInputs] = useState(inputs);
   const [changedFields, setChangedFields] = useState<Record<string, boolean>>({});
   const [showReference, setShowReference] = useState(false);
+  const [highlighted, setHighlighted] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState<string | null>(null);
+  // Track which example is loaded for reset
+  const [exampleLoaded, setExampleLoaded] = useState<{ mixCode: string, values: any } | null>(null);
+  const [whyModal, setWhyModal] = useState<{ title: string, content: React.ReactNode } | null>(null);
+  // --- Compare Mixes ---
+  const [compareMixes, setCompareMixes] = useState<string[]>([]); // array of mix codes
+  const [compareResults, setCompareResults] = useState<any[]>([]);
 
   useEffect(() => {
     setChangedFields(getChangedFields(inputs, prevInputs));
     setPrevInputs(inputs);
   }, [inputs]);
+
+  // Animate highlight for changed fields
+  function animateHighlight(newInputs: any, prevInputs: any) {
+    const changed: Record<string, boolean> = {};
+    for (const key in newInputs) {
+      if (newInputs[key] !== prevInputs[key]) changed[key] = true;
+    }
+    setHighlighted(changed);
+    setTimeout(() => setHighlighted({}), 1200);
+  }
 
   function calculate() {
     // Parse inputs
@@ -218,20 +288,93 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
     const rec = MIX_RECOMMENDATIONS[mixCode] || MIX_RECOMMENDATIONS["custom"];
     const ex = examples[mixCode];
     if (ex) {
-      setInputs(inputs => ({
-        ...inputs,
+      const exampleValues = {
         ...ex,
         wcRatio: rec.wcDefault.toString(),
         admixture: rec.admixtureDefault.toString(),
         dryVolumeFactor: rec.dryVolumeDefault.toString(),
         wastage: rec.wastageDefault.toString(),
         ...(mixCode !== "custom" ? {} : { customCement: "1", customSand: "2", customAggregate: "4" })
-      }));
+      };
+      setExampleLoaded({ mixCode, values: exampleValues });
+      animateHighlight(exampleValues, inputs);
+      setInputs(inputs => ({ ...inputs, ...exampleValues }));
+      setToast(`Example for ${mixCode} loaded. You can now edit values or reset to example.`);
+    }
+  };
+  // Reset to example values if loaded
+  const resetToExample = () => {
+    if (exampleLoaded) {
+      setInputs(inputs => ({ ...inputs, ...exampleLoaded.values }));
+      setToast(`Reset to example values for ${exampleLoaded.mixCode}.`);
+      animateHighlight(exampleLoaded.values, inputs);
     }
   };
 
+  function handleAddCompareMix(mixCode: string) {
+    if (!compareMixes.includes(mixCode)) {
+      setCompareMixes([...compareMixes, mixCode]);
+    }
+  }
+  useEffect(() => {
+    // Calculate results for each compared mix
+    if (compareMixes.length === 0) return setCompareResults([]);
+    const recalc = compareMixes.map(mixCode => {
+      const rec = MIX_RECOMMENDATIONS[mixCode] || MIX_RECOMMENDATIONS["custom"];
+      const ex = {
+        ...(({
+          "1:1.5:3": { width: "30", depth: "50", height: "3", numColumns: "2", mix: "1:1.5:3" },
+          "1:2:4": { width: "25", depth: "40", height: "3", numColumns: "2", mix: "1:2:4" },
+          "1:3:6": { width: "20", depth: "30", height: "2.5", numColumns: "1", mix: "1:3:6" },
+          "1:1:2": { width: "35", depth: "60", height: "3.2", numColumns: "2", mix: "1:1:2" },
+          "1:1.2:2.4": { width: "40", depth: "60", height: "3.5", numColumns: "2", mix: "1:1.2:2.4" },
+        })[mixCode] || {})
+      };
+      // Use same calculation logic as calculate()
+      const width = Number(ex.width) / 100;
+      const depth = Number(ex.depth) / 100;
+      const height = Number(ex.height);
+      const numColumns = Number(ex.numColumns);
+      const dryVolumeFactor = Number(rec.dryVolumeDefault);
+      const wastage = rec.wastageDefault / 100;
+      const wcRatio = rec.wcDefault;
+      const admixturePct = rec.admixtureDefault / 100;
+      let cement = STANDARD_MIXES.find(m => m.code === mixCode)?.cement || 1;
+      let sand = STANDARD_MIXES.find(m => m.code === mixCode)?.sand || 2;
+      let aggregate = STANDARD_MIXES.find(m => m.code === mixCode)?.aggregate || 4;
+      const totalParts = cement + sand + aggregate;
+      const volPerCol = width * depth * height;
+      const wetVolume = volPerCol * numColumns;
+      const dryVolume = wetVolume * dryVolumeFactor * (1 + wastage);
+      const cementVolume = (cement / totalParts) * dryVolume;
+      const sandVolume = (sand / totalParts) * dryVolume;
+      const aggVolume = (aggregate / totalParts) * dryVolume;
+      const cementWeight = cementVolume * 1440;
+      const cementBags = cementWeight / 50;
+      const water = wcRatio * cementWeight;
+      const admixture = admixturePct * cementWeight;
+      return {
+        mix: mixCode,
+        wetVolume,
+        dryVolume,
+        cementBags,
+        sand: sandVolume,
+        gravel: aggVolume,
+        water,
+        admixture,
+        proportions: { cement, sand, gravel: aggregate, water: wcRatio },
+      };
+    });
+    setCompareResults(recalc);
+  }, [compareMixes]);
+
+  // --- Render ---
   return (
     <div className="max-w-4xl mx-auto p-4">
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      {whyModal && (
+        <WhyModal open={!!whyModal} onClose={() => setWhyModal(null)} title={whyModal.title} content={whyModal.content} />
+      )}
       {/* Header */}
       <div className="flex items-center mb-4">
         <button
@@ -309,25 +452,25 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
             <strong>Tip:</strong> Enter all dimensions in centimeters (cm). For example, a typical column might be 30 cm wide, 50 cm deep, and 300 cm high.
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className={highlighted.width ? "transition-all duration-700 bg-yellow-100 dark:bg-yellow-900/40" : undefined}>
               <label className="block text-gray-700 font-medium mb-1">Width (W, cm)</label>
               <input type="number" className="w-full border rounded-xl p-2 focus:ring-2 focus:ring-teal-300" value={inputs.width} onChange={e => setInputs({ ...inputs, width: e.target.value })} required />
               <div className="text-xs text-gray-400 mt-1">Width of the column cross-section (e.g., 30 for 30 cm)</div>
               {errors.width && <div className="text-red-500 text-xs mt-1">{errors.width}</div>}
             </div>
-            <div>
+            <div className={highlighted.depth ? "transition-all duration-700 bg-yellow-100 dark:bg-yellow-900/40" : undefined}>
               <label className="block text-gray-700 font-medium mb-1">Depth (D, cm)</label>
               <input type="number" className="w-full border rounded-xl p-2 focus:ring-2 focus:ring-teal-300" value={inputs.depth} onChange={e => setInputs({ ...inputs, depth: e.target.value })} required />
               <div className="text-xs text-gray-400 mt-1">Depth of the column cross-section (e.g., 50 for 50 cm)</div>
               {errors.depth && <div className="text-red-500 text-xs mt-1">{errors.depth}</div>}
             </div>
-            <div>
+            <div className={highlighted.height ? "transition-all duration-700 bg-yellow-100 dark:bg-yellow-900/40" : undefined}>
               <label className="block text-gray-700 font-medium mb-1">Height (H, m)</label>
               <input type="number" className="w-full border rounded-xl p-2 focus:ring-2 focus:ring-teal-300" value={inputs.height} onChange={e => setInputs({ ...inputs, height: e.target.value })} required />
               <div className="text-xs text-gray-400 mt-1">Height of the column (e.g., 3 for 3 meters)</div>
               {errors.height && <div className="text-red-500 text-xs mt-1">{errors.height}</div>}
             </div>
-            <div>
+            <div className={highlighted.numColumns ? "transition-all duration-700 bg-yellow-100 dark:bg-yellow-900/40" : undefined}>
               <label className="block text-gray-700 font-medium mb-1">Number of Columns</label>
               <input type="number" min="1" className="w-full border rounded-xl p-2 focus:ring-2 focus:ring-teal-300" value={inputs.numColumns} onChange={e => setInputs({ ...inputs, numColumns: e.target.value })} required />
               <div className="text-xs text-gray-400 mt-1">How many identical columns?</div>
@@ -395,7 +538,21 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
             <div>
               <label className="block text-xs text-gray-500">Dry Volume Factor
                 <span className="ml-1 cursor-help" title={`Recommended for this mix: ${MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[0]}–${MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[1]}`}>ⓘ</span>
-                <button type="button" className="ml-1 text-teal-600 underline text-xs" title="Why?" onClick={() => alert('Dry Volume Factor accounts for bulking due to voids and handling. Richer mixes have slightly lower factors. See IS 456/ACI 211.')}>Why?</button>
+                <button
+                  type="button"
+                  className="ml-1 text-teal-600 underline text-xs"
+                  aria-label="Why is dry volume factor needed?"
+                  tabIndex={0}
+                  onClick={() => setWhyModal({
+                    title: "Why is Dry Volume Factor needed?",
+                    content: (
+                      <>
+                        <p>The dry volume factor accounts for the increase in volume due to voids between particles and handling losses. Richer mixes have slightly lower factors. See <a href="https://www.bis.gov.in/standarddetails/IS/456" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">IS 456</a> or <a href="https://www.cement.org/learn/concrete-technology/concrete-construction/concrete-mix-design" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">ACI 211</a> for details.</p>
+                        <img src="https://www.civilengineeringforum.me/wp-content/uploads/2017/09/dry-volume-factor.png" alt="Dry Volume Factor diagram" className="my-2 rounded shadow max-h-40" />
+                      </>
+                    )
+                  })}
+                >Why?</button>
               </label>
               <input type="number" step="0.01" min="1" max="2" className="w-full border rounded-xl p-2" value={inputs.dryVolumeFactor} onChange={e => setInputs({ ...inputs, dryVolumeFactor: e.target.value })} />
               <div className="text-xs text-gray-400 mt-1">Recommended: {MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[0]}–{MIX_RECOMMENDATIONS[inputs.mix]?.dryVolume[1]}</div>
@@ -407,7 +564,21 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
             <div>
               <label className="block text-xs text-gray-500">Wastage %
                 <span className="ml-1 cursor-help" title={`Recommended for this mix: ${MIX_RECOMMENDATIONS[inputs.mix]?.wastage[0]}–${MIX_RECOMMENDATIONS[inputs.mix]?.wastage[1]}%`}>ⓘ</span>
-                <button type="button" className="ml-1 text-teal-600 underline text-xs" title="Why?" onClick={() => alert('Wastage covers spillage, over-mixing, and site losses. Leaner mixes and rougher sites may have higher wastage.')}>Why?</button>
+                <button type="button" className="ml-1 text-teal-600 underline text-xs" aria-label="Why is wastage percentage used?" tabIndex={0} onClick={() => setWhyModal({
+                  title: "Why is Wastage % used?",
+                  content: (
+                    <>
+                      <p>Wastage covers spillage, over-mixing, and site losses. Leaner mixes and rougher sites may have higher wastage. Typical values:</p>
+                      <ul className="list-disc ml-5">
+                        <li>M20: 2-3%</li>
+                        <li>M15: 3-5%</li>
+                        <li>M10: 5-7%</li>
+                        <li>M25/M30: 2-3%</li>
+                      </ul>
+                      <p>See <a href="https://www.bis.gov.in/standarddetails/IS/456" target="_blank" rel="noopener noreferrer" className="underline text-teal-600">IS 456</a> for guidelines.</p>
+                    </>
+                  )
+                })}>Why?</button>
               </label>
               <input type="number" step="0.1" min="0" max="20" className="w-full border rounded-xl p-2" value={inputs.wastage} onChange={e => setInputs({ ...inputs, wastage: e.target.value })} />
               <div className="text-xs text-gray-400 mt-1">Recommended: {MIX_RECOMMENDATIONS[inputs.mix]?.wastage[0]}–{MIX_RECOMMENDATIONS[inputs.mix]?.wastage[1]}%</div>
@@ -418,7 +589,21 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
             </div>
             <div>
               <label className="block text-xs text-gray-500">Concrete Rate (per m³)
-                <button type="button" className="ml-1 text-teal-600 underline text-xs" title="Why?" onClick={() => alert('The rate is the cost per m³ of concrete, including materials, labor, and overheads.')}>Why?</button>
+                <button type="button" className="ml-1 text-teal-600 underline text-xs" aria-label="Why is this rate used?" tabIndex={0} onClick={() => setWhyModal({
+                  title: "Why is this rate used?",
+                  content: (
+                    <>
+                      <p>The rate is the cost per m³ of concrete, including materials, labor, and overheads. It is used to estimate the total cost based on the calculated concrete volume.</p>
+                      <p>Typical rates:</p>
+                      <ul className="list-disc ml-5">
+                        <li>Plain Concrete: $100–150/m³</li>
+                        <li>Reinforced Concrete: $150–300/m³</li>
+                        <li>High-Strength Concrete: $300+/m³</li>
+                      </ul>
+                      <p>See local listings or consult a contractor for accurate pricing.</p>
+                    </>
+                  )
+                })}>Why?</button>
               </label>
               <input type="number" min="0" className="w-full border rounded-xl p-2" value={inputs.rate} onChange={e => setInputs({ ...inputs, rate: e.target.value })} />
               {errors.rate && <div className="text-red-500 text-xs mt-1">{errors.rate}</div>}
@@ -436,35 +621,21 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
         <div className="mt-8 bg-white dark:bg-gray-900 rounded-2xl shadow p-6 max-w-2xl mx-auto">
           <div className="flex justify-between items-center mb-2">
             <div className="font-semibold text-lg text-gray-800 dark:text-gray-100">Results</div>
-            <div className="flex gap-2">
-              <button
-                className="px-3 py-1 rounded bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700 transition"
-                onClick={() => window.print()}
-                title="Print results"
-                type="button"
-              >
-                Print
-              </button>
-              <button
-                className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-xs font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-                onClick={() => {
-                  const el = document.createElement('a');
-                  const text = `Rectangular Column Calculator Results\n\n` +
-                    `Width: ${inputs.width} cm\nDepth: ${inputs.depth} cm\nHeight: ${inputs.height} m\nNumber of Columns: ${inputs.numColumns}\nMix: ${inputs.mix === 'custom' ? `${inputs.customCement}:${inputs.customSand}:${inputs.customAggregate}` : inputs.mix}\nW/C Ratio: ${inputs.wcRatio}\nAdmixture: ${inputs.admixture} %\nDry Volume Factor: ${inputs.dryVolumeFactor}\nWastage: ${inputs.wastage} %\n` +
-                    (inputs.rate ? `Concrete Rate: ${inputs.rate}\n` : '') +
-                    `\nResults:\nWet Volume: ${results.volume.toFixed(3)} m³\nDry Volume: ${results.dryVolume?.toFixed(3)} m³\nCement: ${results.cementBags.toFixed(2)} bags (${(results.cementBags * 50).toFixed(0)} kg)\nSand: ${results.sand.toFixed(3)} m³\nAggregate: ${results.gravel.toFixed(3)} m³\nWater: ${results.water.toFixed(1)} kg\nAdmixture: ${results.admixture?.toFixed(2)} kg\n` +
-                    (results.cost !== null ? `Estimated Cost: ${results.cost?.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}\n` : '');
-                  const blob = new Blob([text], { type: 'text/plain' });
-                  el.href = URL.createObjectURL(blob);
-                  el.download = 'rectangular-column-results.txt';
-                  el.click();
-                }}
-                title="Save results as text file"
-                type="button"
-              >
-                Save
-              </button>
-            </div>
+            {/* Copy Results button */}
+            <button
+              className="ml-2 px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-xs font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+              title="Copy results to clipboard"
+              onClick={() => {
+                const text = `Rectangular Column Calculator Results\n\n` +
+                  `Width: ${inputs.width} cm\nDepth: ${inputs.depth} cm\nHeight: ${inputs.height} m\nNumber of Columns: ${inputs.numColumns}\nMix: ${inputs.mix === 'custom' ? `${inputs.customCement}:${inputs.customSand}:${inputs.customAggregate}` : inputs.mix}\nW/C Ratio: ${inputs.wcRatio}\nAdmixture: ${inputs.admixture} %\nDry Volume Factor: ${inputs.dryVolumeFactor}\nWastage: ${inputs.wastage} %\n` +
+                  (inputs.rate ? `Concrete Rate: ${inputs.rate}\n` : '') +
+                  `\nResults:\nWet Volume: ${results.volume.toFixed(3)} m³\nDry Volume: ${results.dryVolume?.toFixed(3)} m³\nCement: ${results.cementBags.toFixed(2)} bags (${(results.cementBags * 50).toFixed(0)} kg)\nSand: ${results.sand.toFixed(3)} m³\nAggregate: ${results.gravel.toFixed(3)} m³\nWater: ${results.water.toFixed(1)} kg\nAdmixture: ${results.admixture?.toFixed(2)} kg\n` +
+                  (results.cost !== null ? `Estimated Cost: ${results.cost?.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}\n` : '');
+                navigator.clipboard.writeText(text);
+                setToast("Results copied to clipboard!");
+              }}
+              type="button"
+            >Copy Results</button>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className={changedFields.width || changedFields.depth || changedFields.height || changedFields.numColumns ? "font-bold text-teal-700" : undefined}>Wet Volume:
@@ -482,29 +653,6 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
             <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-bold text-teal-700" : undefined}>Sand:
               <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (Sand parts / Total parts) × Dry Volume">[?]</span>
             </div>
-            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.sand.toFixed(3)} m³</div>
-            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-bold text-teal-700" : undefined}>Aggregate:
-              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (Aggregate parts / Total parts) × Dry Volume">[?]</span>
-            </div>
-            <div className={changedFields.mix || changedFields.customCement || changedFields.customSand || changedFields.customAggregate ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.gravel.toFixed(3)} m³</div>
-            <div className={changedFields.wcRatio ? "font-bold text-teal-700" : undefined}>Water:
-              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: W/C × Cement Weight">[?]</span>
-            </div>
-            <div className={changedFields.wcRatio ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.water.toFixed(1)} kg</div>
-            <div className={changedFields.admixture ? "font-bold text-teal-700" : undefined}>Admixture:
-              <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: (Admixture % / 100) × Cement Weight">[?]</span>
-            </div>
-            <div className={changedFields.admixture ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.admixture?.toFixed(2)} kg</div>
-            {results.cost !== null && (
-              <><div className={changedFields.rate ? "font-bold text-teal-700" : undefined}>Estimated Cost:
-                <span className="ml-1 text-xs text-gray-400 cursor-help" title="Formula: Dry Volume × Rate">[?]</span>
-              </div><div className={changedFields.rate ? "font-mono font-bold text-teal-700" : "font-mono"}>{results.cost?.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}</div></>
-            )}
-          </div>
-          <div className="mt-4">
-            <div className="text-gray-500 text-sm">Total Volume (all columns):</div>
-            <div className="font-mono font-bold text-lg">{results.volume.toFixed(3)} m³</div>
-          </div>
           <button className="mt-4 text-teal-600 underline" onClick={() => setShowBreakdown(b => !b)}>
             {showBreakdown ? "Hide Breakdown" : "View Calculation Breakdown"}
           </button>
@@ -623,6 +771,71 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
       </button>
       {/* ReferenceTableModal: add icons, more mixes, tooltips, and expandable explanations */}
       <ReferenceTableModal open={showReference} onClose={() => setShowReference(false)} setExample={setExample} />
+      {/* Reset to Example button if example loaded */}
+      {exampleLoaded && (
+        <button
+          className="mb-4 self-end px-3 py-1 rounded bg-yellow-200 dark:bg-yellow-700 text-xs font-semibold hover:bg-yellow-300 dark:hover:bg-yellow-600 transition w-fit flex items-center gap-1"
+          type="button"
+          onClick={resetToExample}
+        >
+          Reset to Example
+        </button>
+      )}
+      {/* Compare Mixes UI */}
+      <div className="mb-4 flex flex-wrap gap-2 items-center">
+        <label htmlFor="compare-mix-select" className="font-semibold text-sm">Compare Mixes:</label>
+        <select
+          id="compare-mix-select"
+          className="border rounded p-1 text-sm"
+          value=""
+          onChange={e => { if (e.target.value) handleAddCompareMix(e.target.value); }}
+          aria-label="Select mix to compare"
+        >
+          <option value="">Add Mix</option>
+          {STANDARD_MIXES.filter(m => m.code !== "custom" && !compareMixes.includes(m.code)).map(mix => (
+            <option key={mix.code} value={mix.code}>{mix.label}</option>
+          ))}
+        </select>
+        {compareMixes.length > 0 && (
+          <button
+            className="ml-2 px-2 py-1 rounded bg-red-200 text-xs font-semibold hover:bg-red-300 transition"
+            onClick={() => { setCompareMixes([]); setCompareResults([]); }}
+            aria-label="Clear all compared mixes"
+          >Clear</button>
+        )}
+      </div>
+      {compareResults.length > 0 && (
+        <div className="overflow-x-auto mb-6">
+          <table className="min-w-full text-xs border">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-800">
+                <th className="p-2 border">Mix</th>
+                <th className="p-2 border">Wet Volume (m³)</th>
+                <th className="p-2 border">Dry Volume (m³)</th>
+                <th className="p-2 border">Cement (bags)</th>
+                <th className="p-2 border">Sand (m³)</th>
+                <th className="p-2 border">Aggregate (m³)</th>
+                <th className="p-2 border">Water (kg)</th>
+                <th className="p-2 border">Admixture (kg)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {compareResults.map(r => (
+                <tr key={r.mix} className="hover:bg-teal-50">
+                  <td className="border p-1 font-semibold">{r.mix}</td>
+                  <td className="border p-1">{r.wetVolume.toFixed(3)}</td>
+                  <td className="border p-1">{r.dryVolume.toFixed(3)}</td>
+                  <td className="border p-1">{r.cementBags.toFixed(2)}</td>
+                  <td className="border p-1">{r.sand.toFixed(3)}</td>
+                  <td className="border p-1">{r.gravel.toFixed(3)}</td>
+                  <td className="border p-1">{r.water.toFixed(1)}</td>
+                  <td className="border p-1">{r.admixture.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
