@@ -95,6 +95,43 @@ export const translations = {
     noCalculatorsFound: 'No calculators found',
     tryDifferentCategory: 'Try selecting a different category or use the search function to find specific calculators.',
     
+    // Reference Table Modal (Rectangular Column)
+    referenceTable: {
+      title: 'Reference Table: Standard Concrete Mixes',
+      description: 'Standard concrete mix ratios and their typical applications. Click a row for details.',
+      mix: 'Mix',
+      application: 'Application',
+      example: 'Load Example',
+      details: 'Details',
+      close: 'Close',
+      mixes: {
+        '1:1.5:3': {
+          label: 'M20 (1:1.5:3)',
+          application: 'RCC, beams, slabs',
+          explanation: 'M20: Used for RCC, beams, slabs. Moderate strength. Dry volume and wastage are lower due to richer mix.'
+        },
+        '1:2:4': {
+          label: 'M15 (1:2:4)',
+          application: 'Footings, non-structural',
+          explanation: 'M15: Used for footings, non-structural. Slightly higher bulking and wastage.'
+        },
+        '1:3:6': {
+          label: 'M10 (1:3:6)',
+          application: 'Blinding, fill',
+          explanation: 'M10: Used for blinding, fill. Lean mix, higher wastage.'
+        },
+        '1:1:2': {
+          label: 'M25 (1:1:2)',
+          application: 'Columns, slabs',
+          explanation: 'M25: High strength, used for columns, slabs. Lower dry volume factor.'
+        },
+        '1:1.2:2.4': {
+          label: 'M30 (1:1.2:2.4)',
+          application: 'Structural elements',
+          explanation: 'M30: High strength, used for structural elements. Very low bulking/wastage.'
+        }
+      }
+    },
     // Common
     close: 'Close',
     save: 'Save',
@@ -187,6 +224,43 @@ export const translations = {
     noCalculatorsFound: 'لم يتم العثور على حاسبات',
     tryDifferentCategory: 'جرب اختيار فئة مختلفة أو استخدم وظيفة البحث للعثور على حاسبات محددة.',
     
+    // Reference Table Modal (Rectangular Column)
+    referenceTable: {
+      title: 'جدول المراجع: خلطات الخرسانة القياسية',
+      description: 'نسب خلطات الخرسانة القياسية وتطبيقاتها النموذجية. انقر على الصف للتفاصيل.',
+      mix: 'الخلطة',
+      application: 'الاستخدام',
+      example: 'تحميل مثال',
+      details: 'تفاصيل',
+      close: 'إغلاق',
+      mixes: {
+        '1:1.5:3': {
+          label: 'M20 (1:1.5:3)',
+          application: 'خرسانة مسلحة، كمرات، أسقف',
+          explanation: 'M20: تُستخدم للخرسانة المسلحة، الكمرات، الأسقف. مقاومة متوسطة. الحجم الجاف والهدر أقل بسبب الخلطة الغنية.'
+        },
+        '1:2:4': {
+          label: 'M15 (1:2:4)',
+          application: 'أساسات، غير إنشائي',
+          explanation: 'M15: تُستخدم للأساسات، الأعمال غير الإنشائية. زيادة طفيفة في الانتفاخ والهدر.'
+        },
+        '1:3:6': {
+          label: 'M10 (1:3:6)',
+          application: 'فرشة نظافة، تعبئة',
+          explanation: 'M10: تُستخدم لفرشة النظافة والتعبئة. خلطة ضعيفة، هدر أعلى.'
+        },
+        '1:1:2': {
+          label: 'M25 (1:1:2)',
+          application: 'أعمدة، أسقف',
+          explanation: 'M25: مقاومة عالية، تُستخدم للأعمدة والأسقف. عامل الحجم الجاف أقل.'
+        },
+        '1:1.2:2.4': {
+          label: 'M30 (1:1.2:2.4)',
+          application: 'عناصر إنشائية',
+          explanation: 'M30: مقاومة عالية، تُستخدم للعناصر الإنشائية. انتفاخ وهدر منخفض جداً.'
+        }
+      }
+    },
     // Common
     close: 'إغلاق',
     save: 'حفظ',
@@ -279,6 +353,43 @@ export const translations = {
     noCalculatorsFound: '未找到计算器',
     tryDifferentCategory: '尝试选择不同的类别或使用搜索功能查找特定的计算器。',
     
+    // Reference Table Modal (Rectangular Column)
+    referenceTable: {
+      title: '参考表：标准混凝土配比',
+      description: '标准混凝土配比及其典型应用。点击行查看详情。',
+      mix: '配比',
+      application: '用途',
+      example: '加载示例',
+      details: '详情',
+      close: '关闭',
+      mixes: {
+        '1:1.5:3': {
+          label: 'M20 (1:1.5:3)',
+          application: '钢筋混凝土、梁、板',
+          explanation: 'M20：用于钢筋混凝土、梁、板。中等强度。由于配比较富，干体积和损耗较低。'
+        },
+        '1:2:4': {
+          label: 'M15 (1:2:4)',
+          application: '基础、非结构',
+          explanation: 'M15：用于基础、非结构部位。膨胀和损耗略高。'
+        },
+        '1:3:6': {
+          label: 'M10 (1:3:6)',
+          application: '垫层、填充',
+          explanation: 'M10：用于垫层、填充。稀配比，损耗较高。'
+        },
+        '1:1:2': {
+          label: 'M25 (1:1:2)',
+          application: '柱、板',
+          explanation: 'M25：高强度，用于柱、板。干体积系数较低。'
+        },
+        '1:1.2:2.4': {
+          label: 'M30 (1:1.2:2.4)',
+          application: '结构构件',
+          explanation: 'M30：高强度，用于结构构件。膨胀/损耗极低。'
+        }
+      }
+    },
     // Common
     close: '关闭',
     save: '保存',
@@ -371,6 +482,43 @@ export const translations = {
     noCalculatorsFound: 'No se encontraron calculadoras',
     tryDifferentCategory: 'Intente seleccionar una categoría diferente o use la función de búsqueda para encontrar calculadoras específicas.',
     
+    // Reference Table Modal (Rectangular Column)
+    referenceTable: {
+      title: 'Tabla de Referencia: Mezclas de Hormigón Estándar',
+      description: 'Proporciones estándar de mezclas de hormigón y sus aplicaciones típicas. Haz clic en una fila para ver detalles.',
+      mix: 'Mezcla',
+      application: 'Aplicación',
+      example: 'Cargar Ejemplo',
+      details: 'Detalles',
+      close: 'Cerrar',
+      mixes: {
+        '1:1.5:3': {
+          label: 'M20 (1:1.5:3)',
+          application: 'Hormigón armado, vigas, losas',
+          explanation: 'M20: Usado para hormigón armado, vigas, losas. Resistencia moderada. El volumen seco y el desperdicio son menores debido a la mezcla más rica.'
+        },
+        '1:2:4': {
+          label: 'M15 (1:2:4)',
+          application: 'Cimentaciones, no estructural',
+          explanation: 'M15: Usado para cimentaciones, no estructural. Ligeramente mayor expansión y desperdicio.'
+        },
+        '1:3:6': {
+          label: 'M10 (1:3:6)',
+          application: 'Capa de limpieza, relleno',
+          explanation: 'M10: Usado para capa de limpieza y relleno. Mezcla pobre, mayor desperdicio.'
+        },
+        '1:1:2': {
+          label: 'M25 (1:1:2)',
+          application: 'Columnas, losas',
+          explanation: 'M25: Alta resistencia, usado para columnas y losas. Menor factor de volumen seco.'
+        },
+        '1:1.2:2.4': {
+          label: 'M30 (1:1.2:2.4)',
+          application: 'Elementos estructurales',
+          explanation: 'M30: Alta resistencia, usado para elementos estructurales. Muy baja expansión/desperdicio.'
+        }
+      }
+    },
     // Common
     close: 'Cerrar',
     save: 'Guardar',

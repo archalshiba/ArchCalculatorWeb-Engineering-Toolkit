@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useLanguage } from "../hooks/useLanguage";
 
 interface Results {
   volume: number;
@@ -96,6 +97,7 @@ function WhyModal({ open, onClose, title, content }: { open: boolean, onClose: (
 }
 
 export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) {
+  const { t } = useLanguage();
   const [inputs, setInputs] = useState({
     width: "",
     depth: "",
@@ -785,7 +787,7 @@ export function RectangularColumnCalculator({ onBack }: { onBack: () => void }) 
         Reference Table / Docs
       </button>
       {/* ReferenceTableModal: add icons, more mixes, tooltips, and expandable explanations */}
-      <ReferenceTableModal open={showReference} onClose={() => setShowReference(false)} setExample={setExample} />
+      <ReferenceTableModal open={showReference} onClose={() => setShowReference(false)} setExample={setExample} t={t} />
       {/* Reset to Example button if example loaded */}
       {exampleLoaded && (
         <button
@@ -957,75 +959,126 @@ function StepCard({ title, icon, formula, explanation, children }: { title: stri
 }
 
 // --- Reference Table Modal for Standard Mixes ---
-function ReferenceTableModal({ open, onClose, setExample }: { open: boolean, onClose: () => void, setExample?: (mixCode: string) => void }) {
-  const [expanded, setExpanded] = useState<string | null>(null);
+// --- Type for known mix codes ---
+type MixCode = "1:1.5:3" | "1:2:4" | "1:3:6" | "1:1:2" | "1:1.2:2.4";
+
+// --- Explanations mapping for code readability ---
+const mixExplanations: Record<MixCode, string> = {
+  "1:1.5:3": "M20: Used for RCC, beams, slabs. Moderate strength. Dry volume and wastage are lower due to richer mix.",
+  "1:2:4": "M15: Used for footings, non-structural. Slightly higher bulking and wastage.",
+  "1:3:6": "M10: Used for blinding, fill. Lean mix, higher wastage.",
+  "1:1:2": "M25: High strength, used for columns, slabs. Lower dry volume factor.",
+  "1:1.2:2.4": "M30: High strength, used for structural elements. Very low bulking/wastage."
+};
+
+// --- ReferenceTableModal with improved type safety, i18n, accessibility, and feedback ---
+function ReferenceTableModal({ open, onClose, setExample, t }: {
+  open: boolean;
+  onClose: () => void;
+  setExample?: (mixCode: MixCode) => void;
+  t?: (key: string) => string;
+}) {
+  const [expanded, setExpanded] = useState<MixCode | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const lastActiveElement = useRef<HTMLElement | null>(null);
+
+  // Accessibility: trap focus and restore on close
+  useEffect(() => {
+    if (open) {
+      lastActiveElement.current = document.activeElement as HTMLElement;
+      setTimeout(() => {
+        modalRef.current?.focus();
+      }, 0);
+      const handleKey = (e: KeyboardEvent) => {
+        if (e.key === "Escape") onClose();
+        if (e.key === "Tab" && modalRef.current) {
+          const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          if (!focusable.length) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      };
+      document.addEventListener('keydown', handleKey);
+      return () => document.removeEventListener('keydown', handleKey);
+    } else {
+      lastActiveElement.current?.focus();
+    }
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 max-w-2xl w-full relative">
-        <button className="absolute top-2 right-2 text-gray-400 hover:text-teal-600" onClick={onClose} aria-label="Close">✕</button>
-        <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
+      <div
+        ref={modalRef}
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-6 max-w-2xl w-full relative outline-none"
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reference-table-title"
+      >
+        <button className="absolute top-2 right-2 text-gray-400 hover:text-teal-600" onClick={onClose} aria-label={t ? t('close') : 'Close'}>✕</button>
+        <h2 id="reference-table-title" className="text-lg font-bold mb-2 flex items-center gap-2">
           <svg width="22" height="22" fill="none" viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="12" rx="2" fill="#0f766e"/><path d="M7 8h6M7 12h4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
-          Standard Mixes & Recommendations
+          {t ? t('standardMixesTitle') : 'Standard Mixes & Recommendations'}
         </h2>
         <table className="w-full text-xs border mb-2">
           <thead>
             <tr className="bg-gray-100 dark:bg-gray-800">
-              <th className="p-2 border">Mix</th>
-              <th className="p-2 border">W/C Range <span className="cursor-help" title="Water/Cement ratio affects strength and workability.">ⓘ</span></th>
-              <th className="p-2 border">Admixture % <span className="cursor-help" title="Admixtures improve workability, setting, or durability.">ⓘ</span></th>
-              <th className="p-2 border">Dry Vol. <span className="cursor-help" title="Dry Volume Factor accounts for bulking.">ⓘ</span></th>
-              <th className="p-2 border">Wastage % <span className="cursor-help" title="Covers site losses.">ⓘ</span></th>
-              <th className="p-2 border">Notes</th>
-              <th className="p-2 border">Example</th>
+              <th className="p-2 border">{t ? t('mix') : 'Mix'}</th>
+              <th className="p-2 border">{t ? t('wcRange') : 'W/C Range'} <span className="cursor-help" title={t ? t('wcRangeHelp') : 'Water/Cement ratio affects strength and workability.'}>ⓘ</span></th>
+              <th className="p-2 border">{t ? t('admixturePct') : 'Admixture %'} <span className="cursor-help" title={t ? t('admixturePctHelp') : 'Admixtures improve workability, setting, or durability.'}>ⓘ</span></th>
+              <th className="p-2 border">{t ? t('dryVol') : 'Dry Vol.'} <span className="cursor-help" title={t ? t('dryVolHelp') : 'Dry Volume Factor accounts for bulking.'}>ⓘ</span></th>
+              <th className="p-2 border">{t ? t('wastagePct') : 'Wastage %'} <span className="cursor-help" title={t ? t('wastagePctHelp') : 'Covers site losses.'}>ⓘ</span></th>
+              <th className="p-2 border">{t ? t('notes') : 'Notes'}</th>
+              <th className="p-2 border">{t ? t('example') : 'Example'}</th>
             </tr>
           </thead>
           <tbody>
             {Object.entries(MIX_RECOMMENDATIONS).filter(([code]) => code !== "custom").map(([code, rec]) => (
               <tr key={code} className="hover:bg-teal-50">
-                <td className="border p-1 font-semibold flex items-center gap-1">
-                  {code === "1:1.5:3" && <span title="M20"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#0f766e" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#0f766e">20</text></svg></span>}
-                  {code === "1:2:4" && <span title="M15"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f59e42" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#f59e42">15</text></svg></span>}
-                  {code === "1:3:6" && <span title="M10"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#f87171">10</text></svg></span>}
-                  {code === "1:1:2" && <span title="M25"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#14b8a6" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#14b8a6">25</text></svg></span>}
-                  {code === "1:1.2:2.4" && <span title="M30"><svg width="16" height="16" fill="none"><circle cx="8" cy="8" r="7" stroke="#a21caf" strokeWidth="2"/><text x="8" y="12" textAnchor="middle" fontSize="8" fill="#a21caf">30</text></svg></span>}
-                  {code}
-                </td>
+                <td className="border p-1 font-semibold flex items-center gap-1">{code}</td>
                 <td className="border p-1">{rec.wc[0]}–{rec.wc[1]}</td>
                 <td className="border p-1">{rec.admixture[0]}–{rec.admixture[1]}</td>
                 <td className="border p-1">{rec.dryVolume[0]}–{rec.dryVolume[1]}</td>
                 <td className="border p-1">{rec.wastage[0]}–{rec.wastage[1]}</td>
                 <td className="border p-1">
-                  <button type="button" className="text-teal-600 underline text-xs" onClick={() => setExpanded(expanded === code ? null : code)}>Details</button>
+                  <button type="button" className="text-teal-600 underline text-xs" onClick={() => setExpanded(expanded === code ? null : code as MixCode)}>{t ? t('details') : 'Details'}</button>
                 </td>
                 <td className="border p-1">
-                  <button type="button" className="text-blue-600 underline text-xs" onClick={() => setExample && setExample(code)}>Show Example</button>
+                  <button type="button" className="text-blue-600 underline text-xs" onClick={() => setExample && setExample(code as MixCode)}>{t ? t('showExample') : 'Show Example'}</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         {expanded && (
-          <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/30 rounded text-xs">
-            <b>Explanation for {expanded}:</b> <br />
-            {expanded === "1:1.5:3" && "M20: Used for RCC, beams, slabs. Moderate strength. Dry volume and wastage are lower due to richer mix."}
-            {expanded === "1:2:4" && "M15: Used for footings, non-structural. Slightly higher bulking and wastage."}
-            {expanded === "1:3:6" && "M10: Used for blinding, fill. Lean mix, higher wastage."}
-            {expanded === "1:1:2" && "M25: High strength, used for columns, slabs. Lower dry volume factor."}
-            {expanded === "1:1.2:2.4" && "M30: High strength, used for structural elements. Very low bulking/wastage."}
+          <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/30 rounded text-xs animate-pulse">
+            <b>{t ? t('explanationFor') : 'Explanation for'} {expanded}:</b> <br />
+            {mixExplanations[expanded]}
           </div>
         )}
+        {/* Lazy-load heavy content placeholder */}
+        {/* {expanded && <Suspense fallback={<div>Loading diagram...</div>}><MixDiagram code={expanded} /></Suspense>} */}
         <div className="mt-4 text-xs text-gray-500 dark:text-gray-300">
-          <b className="block mb-1">Sources & Further Reading:</b>
+          <b className="block mb-1">{t ? t('sourcesFurtherReading') : 'Sources & Further Reading:'}</b>
           <ul className="list-none pl-0 flex flex-wrap gap-2 items-center">
             <li>
-              <a href="https://www.cement.org/learn/concrete-technology/concrete-construction/concrete-mix-design" target="_blank" rel="noopener noreferrer" className="underline text-teal-600 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded transition-colors px-1 py-0.5" tabIndex={0} aria-label="Open ACI 211 mix design guide in new tab">ACI 211</a>
+              <a href="https://www.cement.org/learn/concrete-technology/concrete-construction/concrete-mix-design" target="_blank" rel="noopener noreferrer" className="underline text-teal-600 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded transition-colors px-1 py-0.5" tabIndex={0} aria-label={t ? t('openAci211') : 'Open ACI 211 mix design guide in new tab'}>ACI 211</a>
             </li>
             <li>
-              <a href="https://www.bis.gov.in/standarddetails/IS/456" target="_blank" rel="noopener noreferrer" className="underline text-teal-600 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded transition-colors px-1 py-0.5" tabIndex={0} aria-label="Open IS 456 standard in new tab">IS 456</a>
+              <a href="https://www.bis.gov.in/standarddetails/IS/456" target="_blank" rel="noopener noreferrer" className="underline text-teal-600 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded transition-colors px-1 py-0.5" tabIndex={0} aria-label={t ? t('openIs456') : 'Open IS 456 standard in new tab'}>IS 456</a>
             </li>
             <li>
-              <a href="https://www.cement.org/" target="_blank" rel="noopener noreferrer" className="underline text-teal-600 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded transition-colors px-1 py-0.5" tabIndex={0} aria-label="Open Cement.org in new tab">Cement.org</a>
+              <a href="https://www.cement.org/" target="_blank" rel="noopener noreferrer" className="underline text-teal-600 hover:text-teal-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded transition-colors px-1 py-0.5" tabIndex={0} aria-label={t ? t('openCementOrg') : 'Open Cement.org in new tab'}>Cement.org</a>
             </li>
           </ul>
         </div>
