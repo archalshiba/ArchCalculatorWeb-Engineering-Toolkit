@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calculator, FileText, Download, Eye, EyeOff, AlertTriangle, CheckCircle, Info, Book, Settings, Save, Load, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Calculator, FileText, Download, Eye, EyeOff, AlertTriangle, CheckCircle, Info, Book, Settings, Save, Loader as Load, RotateCcw } from 'lucide-react';
 import { useLanguage } from '../hooks/useLanguage';
 import { usePreferences } from '../hooks/usePreferences';
 
