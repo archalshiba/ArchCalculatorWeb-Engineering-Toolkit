@@ -13,24 +13,43 @@ export const CategoryHeader: React.FC<CategoryHeaderProps> = ({ category, count 
   if (category === 'all') {
     return (
       <div className="mb-8">
-        <h2 className="text-3xl font-heading font-bold bg-gradient-to-r from-primary-600 to-accent-600 dark:from-primary-400 dark:to-accent-400 bg-clip-text text-transparent mb-3">
-          {t('allEngineering')}
+        <h2 className="text-3xl font-heading font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent mb-3">
+          🎯 Professional Quantity Calculators
         </h2>
-        <p className="text-gray-600 dark:text-gray-400 font-body text-lg">
-          {t('allDescription')}
+        <p className="text-indigo-600 dark:text-indigo-400 font-body text-lg">
+          Comprehensive quantity estimation tools for expert engineers
         </p>
       </div>
     );
   }
 
-  if (category === 'pro') {
+  const categoryTitles = {
+    concrete: '🏗️ Concrete Quantity Calculators',
+    steel: '🔩 Steel Quantity Calculators', 
+    masonry: '🧱 Masonry Quantity Calculators',
+    excavation: '⛏️ Excavation Quantity Calculators',
+    converter: '🔄 Unit Conversion Tools'
+  };
+
+  const categoryDescriptions = {
+    concrete: 'Calculate concrete volumes, material quantities, and mix requirements',
+    steel: 'Estimate steel reinforcement weights and quantities',
+    masonry: 'Calculate brick, block, and mortar quantities',
+    excavation: 'Estimate earthwork and excavation volumes',
+    converter: 'Convert between different engineering units'
+  };
+
+  const title = categoryTitles[category as keyof typeof categoryTitles];
+  const description = categoryDescriptions[category as keyof typeof categoryDescriptions];
+
+  if (title) {
     return (
       <div className="mb-8">
-        <h2 className="text-3xl font-heading font-bold bg-gradient-to-r from-accent-600 to-primary-600 dark:from-accent-400 dark:to-primary-400 bg-clip-text text-transparent mb-3">
-          {t('proTools')}
+        <h2 className="text-3xl font-heading font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent mb-3">
+          {title}
         </h2>
-        <p className="text-gray-600 dark:text-gray-400 font-body text-lg">
-          {t('proDescription')}
+        <p className="text-indigo-600 dark:text-indigo-400 font-body text-lg">
+          {description}
         </p>
       </div>
     );

@@ -16,6 +16,16 @@ import { PARTS } from './features/ConcretePartSelector';
 import { RectangularColumnCalculator } from './features/RectangularColumnCalculator';
 import { PartTypeSelector } from './features/PartTypeSelector';
 
+// Focus on quantity calculations only
+const QUANTITY_CATEGORIES = [
+  { id: 'all', label: 'All Quantity Tools', icon: Calculator },
+  { id: 'concrete', label: 'Concrete Quantities', icon: Calculator },
+  { id: 'steel', label: 'Steel Quantities', icon: Calculator },
+  { id: 'masonry', label: 'Masonry Quantities', icon: Square },
+  { id: 'excavation', label: 'Excavation Quantities', icon: Cube },
+  { id: 'converter', label: 'Unit Converters', icon: ArrowRightLeft }
+];
+
 function App() {
   const { t } = useLanguage();
   const { preferences, addRecentCalculator } = usePreferences();
@@ -108,17 +118,18 @@ function App() {
         selectedConcretePart && !selectedPartType ? (
           <PartTypeSelector
             partId={selectedConcretePart}
-            partLabel={getPartLabel(selectedConcretePart)}
-            onSelect={typeId => setSelectedPartType(typeId)}
+          <nav className="hidden lg:flex space-x-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl p-1 rounded-xl border border-white/20 dark:border-gray-700/50">
+            {QUANTITY_CATEGORIES.slice(0, 5).map((tab) => (
             onBack={() => setSelectedConcretePart(null)}
           />
         ) : selectedConcretePart && selectedPartType ? (
-          selectedConcretePart === 'columns' && selectedPartType === 'rectangular' ? (
+                className={`flex items-center px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
             <RectangularColumnCalculator onBack={() => setSelectedPartType(null)} />
-          ) : (
-            <div className="max-w-xl mx-auto p-6 text-center">
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50'
               <h2 className="text-2xl font-bold mb-4">{selectedPartType.replace(/^[a-z]/, c => c.toUpperCase())} Calculator Coming Soon</h2>
               <button className="mt-4 text-teal-600 underline" onClick={() => setSelectedPartType(null)}>
+                <tab.icon size={16} className="mr-2" />
                 &larr; Back to Type Selection
               </button>
             </div>
@@ -208,8 +219,8 @@ function App() {
                       {t('tryDifferentCategory')}
                     </p>
                   </div>
-                )}
-              </div>
+            <p className="text-sm text-indigo-600 dark:text-indigo-400 text-center font-medium">
+              🎯 Professional Quantity Estimation for Expert Engineers
             </main>
           </div>
 

@@ -19,12 +19,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { t } = useLanguage();
 
   const categories = [
-    { id: 'all', label: t('allTools'), icon: Calculator },
-    { id: 'quantity', label: t('quantity'), icon: Calculator },
-    { id: 'area', label: t('area'), icon: Square },
-    { id: 'volume', label: t('volume'), icon: Cube },
-    { id: 'converter', label: t('converter'), icon: ArrowRightLeft },
-    { id: 'pro', label: t('proTools'), icon: Crown }
+    { id: 'all', label: 'All Quantity Tools', icon: Calculator },
+    { id: 'concrete', label: 'Concrete Quantities', icon: Calculator },
+    { id: 'steel', label: 'Steel Quantities', icon: Calculator },
+    { id: 'masonry', label: 'Masonry Quantities', icon: Square },
+    { id: 'excavation', label: 'Excavation Quantities', icon: Cube },
+    { id: 'converter', label: 'Unit Converters', icon: ArrowRightLeft }
   ];
 
   return (
