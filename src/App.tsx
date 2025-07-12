@@ -12,9 +12,9 @@ import { usePreferences } from './hooks/usePreferences';
 import { calculators, proCalculators, CalculatorItem } from './data/calculators';
 import { themes } from './data/themes';
 import { ConcretePartSelector } from './features/ConcretePartSelector';
-import { PARTS } from './features/ConcretePartSelector';
 import { RectangularColumnCalculator } from './features/RectangularColumnCalculator';
 import { PartTypeSelector } from './features/PartTypeSelector';
+import { Calculator, Square, Cube, ArrowRightLeft } from 'lucide-react';
 
 // Focus on quantity calculations only
 const QUANTITY_CATEGORIES = [
@@ -118,20 +118,28 @@ function App() {
         selectedConcretePart && !selectedPartType ? (
           <PartTypeSelector
             partId={selectedConcretePart}
-          <nav className="hidden lg:flex space-x-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl p-1 rounded-xl border border-white/20 dark:border-gray-700/50">
-            {QUANTITY_CATEGORIES.slice(0, 5).map((tab) => (
+            onSelect={(type) => setSelectedPartType(type)}
             onBack={() => setSelectedConcretePart(null)}
           />
         ) : selectedConcretePart && selectedPartType ? (
-                className={`flex items-center px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+          selectedPartType === 'rectangular' ? (
             <RectangularColumnCalculator onBack={() => setSelectedPartType(null)} />
-                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50'
-              <h2 className="text-2xl font-bold mb-4">{selectedPartType.replace(/^[a-z]/, c => c.toUpperCase())} Calculator Coming Soon</h2>
-              <button className="mt-4 text-teal-600 underline" onClick={() => setSelectedPartType(null)}>
-                <tab.icon size={16} className="mr-2" />
-                &larr; Back to Type Selection
-              </button>
+          ) : (
+            <div className="min-h-screen bg-gradient-to-br from-background via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 text-center max-w-md">
+                <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  {selectedPartType.replace(/^[a-z]/, c => c.toUpperCase())} Calculator Coming Soon
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  This calculator is under development and will be available soon.
+                </p>
+                <button 
+                  className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 transition-all duration-200 shadow-lg"
+                  onClick={() => setSelectedPartType(null)}
+                >
+                  ← Back to Type Selection
+                </button>
+              </div>
             </div>
           )
         ) : (
@@ -219,8 +227,11 @@ function App() {
                       {t('tryDifferentCategory')}
                     </p>
                   </div>
+                )}
+              </div>
             <p className="text-sm text-indigo-600 dark:text-indigo-400 text-center font-medium">
               🎯 Professional Quantity Estimation for Expert Engineers
+            </p>
             </main>
           </div>
 
