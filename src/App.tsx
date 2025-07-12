@@ -14,7 +14,7 @@ import { themes } from './data/themes';
 import { ConcretePartSelector } from './features/ConcretePartSelector';
 import { RectangularColumnCalculator } from './features/RectangularColumnCalculator';
 import { PartTypeSelector } from './features/PartTypeSelector';
-import { Calculator, Square, Cube, ArrowRightLeft } from 'lucide-react';
+import { Calculator, Square, Cuboid as Cube, ArrowRightLeft } from 'lucide-react';
 
 // Focus on quantity calculations only
 const QUANTITY_CATEGORIES = [
