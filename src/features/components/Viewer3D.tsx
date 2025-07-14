@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { RotateCcw, ZoomIn, ZoomOut, Move3D, Eye, Maximize2, Minimize2 } from 'lucide-react';
+import { RotateCcw, ZoomIn, Move3D, Eye } from 'lucide-react';
+// ...existing code...
 import { FoundationData, ColumnData } from '../types/calculator';
 
 interface Viewer3DProps {
@@ -13,6 +14,7 @@ interface Viewer3DProps {
     showMesh: boolean;
     projection: 'orthographic' | 'perspective';
     viewAngle: 'top' | 'front' | 'side' | 'isometric';
+    zoom?: number;
   };
   unitSystem: 'metric' | 'imperial';
 }
@@ -25,62 +27,55 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   unitSystem
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [rotation, setRotation] = useState({ x: 20, y: 45 });
-  const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragMode, setDragMode] = useState<'rotate' | 'pan'>('rotate');
   const [lastMouse, setLastMouse] = useState({ x: 0, y: 0 });
+  const [rotation, setRotation] = useState<{ x: number; y: number }>({ x: 20, y: 45 });
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
     // Set canvas size
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * window.devicePixelRatio;
     canvas.height = rect.height * window.devicePixelRatio;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-
     drawFoundationAndColumn(ctx, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
-  }, [foundationData, columnData, reinforcementData, settings, rotation, zoom]);
+  }, [foundationData, columnData, reinforcementData, settings, rotation, pan]);
 
   const drawFoundationAndColumn = (ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) => {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    
-    const centerX = canvasWidth / 2;
-    const centerY = canvasHeight / 2;
-    
+    // Pan and rotation
+    const centerX = canvasWidth / 2 + pan.x;
+    const centerY = canvasHeight / 2 + pan.y;
     // Calculate scale to fit both foundation and column
     const maxDimension = Math.max(
       foundationData.width, 
       foundationData.length, 
       foundationData.thickness + columnData.height
     );
-    const scale = Math.min(canvasWidth, canvasHeight) * 0.3 / maxDimension * zoom;
-    
-    // Apply rotation transformations
+    const scale = Math.min(canvasWidth, canvasHeight) * 0.3 / maxDimension * (settings.zoom ?? 1);
+    // Use rotation state
     const radX = (rotation.x * Math.PI) / 180;
     const radY = (rotation.y * Math.PI) / 180;
-    
     const cosX = Math.cos(radX);
     const sinX = Math.sin(radX);
     const cosY = Math.cos(radY);
     const sinY = Math.sin(radY);
-    
     const project3D = (x: number, y: number, z: number) => {
       // Apply rotation
       const rotatedY = y * cosX - z * sinX;
       const rotatedZ = y * sinX + z * cosX;
       const rotatedX = x * cosY + rotatedZ * sinY;
       const finalZ = -x * sinY + rotatedZ * cosY;
-      
       // Project to 2D
       const projectedX = centerX + rotatedX * scale;
       const projectedY = centerY - rotatedY * scale;
-      
       return { x: projectedX, y: projectedY, z: finalZ };
     };
 
@@ -478,17 +473,21 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     setLastMouse({ x: e.clientX, y: e.clientY });
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = (e: { clientX: number; clientY: number }) => {
     if (!isDragging) return;
-    
     const deltaX = e.clientX - lastMouse.x;
     const deltaY = e.clientY - lastMouse.y;
-    
-    setRotation(prev => ({
-      x: Math.max(-90, Math.min(90, prev.x + deltaY * 0.5)),
-      y: prev.y + deltaX * 0.5
-    }));
-    
+    if (dragMode === 'rotate') {
+      setRotation(prev => ({
+        x: Math.max(-90, Math.min(90, prev.x + deltaY * 0.5)),
+        y: prev.y + deltaX * 0.5
+      }));
+    } else if (dragMode === 'pan') {
+      setPan(prev => ({
+        x: prev.x + deltaX,
+        y: prev.y + deltaY
+      }));
+    }
     setLastMouse({ x: e.clientX, y: e.clientY });
   };
 
@@ -498,7 +497,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
 
   const resetView = () => {
     setRotation({ x: 20, y: 45 });
-    setZoom(1);
+    setPan({ x: 0, y: 0 });
   };
 
   return (
@@ -509,38 +508,69 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
           ref={canvasRef}
           className="w-full h-full cursor-move bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-indigo-900 rounded-2xl"
           onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
+          onMouseMove={isDragging ? handleMouseMove : undefined}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onTouchStart={e => {
+            if (e.touches.length === 1) {
+              setIsDragging(true);
+              setLastMouse({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+            }
+          }}
+          onTouchMove={e => {
+            if (isDragging && e.touches.length === 1) {
+              const touch = e.touches[0];
+              handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY } as any);
+            }
+          }}
+          onTouchEnd={() => setIsDragging(false)}
         />
-        
         {/* Controls Overlay */}
         <div className="absolute bottom-4 left-4 right-4 bg-black/80 backdrop-blur-sm text-white text-xs px-4 py-3 rounded-xl border border-white/10">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <Move3D size={14} className="mr-2 text-blue-400" />
-                <span>Drag to rotate</span>
-              </div>
+              <button
+                className={`flex items-center px-2 py-1 rounded-lg mr-2 ${dragMode === 'rotate' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                onClick={() => setDragMode('rotate')}
+                title="Rotate Mode"
+              >
+                <Move3D size={14} className="mr-2" />
+                <span>Rotate</span>
+              </button>
+              <button
+                className={`flex items-center px-2 py-1 rounded-lg ${dragMode === 'pan' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                onClick={() => setDragMode('pan')}
+                title="Pan Mode"
+              >
+                <Eye size={14} className="mr-2" />
+                <span>Pan</span>
+              </button>
+              <button
+                className="flex items-center px-2 py-1 rounded-lg bg-gray-700 text-gray-300"
+                onClick={resetView}
+                title="Reset View"
+              >
+                <RotateCcw size={14} className="mr-2" />
+                <span>Reset</span>
+              </button>
               <div className="flex items-center">
                 <ZoomIn size={14} className="mr-2 text-green-400" />
                 <span>Scroll to zoom</span>
               </div>
             </div>
             <div className="flex items-center space-x-2 text-xs">
-              <span>Zoom: {(zoom * 100).toFixed(0)}%</span>
+              <span>Zoom: {(settings.zoom ? settings.zoom * 100 : 100).toFixed(0)}%</span>
               <span>•</span>
-              <span>X: {rotation.x.toFixed(0)}°</span>
+              <span>Rotation: X{rotation.x.toFixed(0)}° Y{rotation.y.toFixed(0)}°</span>
               <span>•</span>
-              <span>Y: {rotation.y.toFixed(0)}°</span>
+              <span>Pan: X{pan.x.toFixed(0)} Y{pan.y.toFixed(0)}</span>
             </div>
           </div>
         </div>
-
         {/* Loading Indicator */}
         {isDragging && (
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/50 text-white px-3 py-2 rounded-lg text-sm">
-            Rotating...
+            {dragMode === 'rotate' ? 'Rotating...' : 'Panning...'}
           </div>
         )}
       </div>
