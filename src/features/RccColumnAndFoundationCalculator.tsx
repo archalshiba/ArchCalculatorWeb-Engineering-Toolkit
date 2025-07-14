@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calculator, Eye, Download, Settings, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Calculator, Download } from 'lucide-react';
 import { GeometryForm } from './components/GeometryForm';
 import { MaterialsForm } from './components/MaterialsForm';
 import { ReinforcementForm } from './components/ReinforcementForm';
 import { ResultsPanel } from './components/ResultsPanel';
 import { Viewer3D } from './components/Viewer3D';
-import { calculateColumn, calculateFoundation } from '../../utils/calculations';
+import BssTablePanel from '../components/BssTablePanel';
+import { calculateColumn, calculateFoundation } from '../utils/calculations';
 import { FoundationData, ColumnData, CalculationResults } from './types/calculator';
 
 interface RccColumnAndFoundationCalculatorProps {
@@ -16,7 +17,7 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
   const [activeTab, setActiveTab] = useState('geometry');
   const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('metric');
   const [isCalculating, setIsCalculating] = useState(false);
-  
+
   // Foundation Data
   const [foundationData, setFoundationData] = useState<FoundationData>({
     id: `FND-${Date.now()}`,
@@ -124,10 +125,8 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
     try {
       // Simulate calculation time
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       const columnResults = calculateColumn(columnData, materialsData, reinforcementData.column);
       const foundationResults = calculateFoundation(foundationData, materialsData, reinforcementData.footing);
-      
       setResults({
         column: columnResults,
         foundation: foundationResults,
@@ -137,7 +136,6 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
           totalCost: columnResults.totalCost + foundationResults.totalCost
         }
       });
-      
       setActiveTab('results');
     } catch (error) {
       console.error('Calculation error:', error);
@@ -194,7 +192,7 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-blue-900 dark:to-indigo-900">
+    <div className="fixed inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-blue-900 dark:to-indigo-900 overflow-hidden">
       {/* Header */}
       <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-white/20 dark:border-slate-700/50 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -226,100 +224,54 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
           </div>
         </div>
       </div>
-
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-          {/* Left Pane - Inputs */}
-          <div className="lg:col-span-1 flex flex-col">
+      <div className="max-w-7xl mx-auto p-0 h-full flex flex-col">
+        <div className="flex flex-1 h-full">
+          {/* Left Pane - Inputs (sticky, scrollable) */}
+          <div className="flex flex-col h-full bg-white/80 dark:bg-slate-800/80" style={{ minWidth: 400, maxWidth: 400 }}>
             {/* Tab Navigation */}
-            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl p-1 rounded-xl border border-white/20 dark:border-slate-700/50 mb-6">
-              <div className="grid grid-cols-2 gap-1">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      activeTab === tab.id
-                        ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg transform scale-105'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white/50 dark:hover:bg-slate-700/50'
-                    }`}
-                  >
-                    <span className="mr-2">{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+            <div className="grid grid-cols-2 gap-0 mb-0">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center justify-center px-2 py-2 rounded-none text-sm font-medium transition-all duration-200 border-none ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg transform scale-105'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                  }`}
+                >
+                  <span className="mr-1">{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
             </div>
-
             {/* Tab Content */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {renderTabContent()}
             </div>
-
             {/* Sticky Bottom Bar */}
-            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-4 rounded-xl border border-white/20 dark:border-slate-700/50 mt-6">
-              <div className="flex items-center space-x-3">
+            <div className="sticky bottom-0 bg-white/80 dark:bg-slate-800/80 z-10">
+              <div className="flex items-center">
                 <button
                   onClick={runCalculations}
                   disabled={isCalculating}
-                  className="flex-1 flex items-center justify-center px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="flex-1 flex items-center justify-center px-2 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-none hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  <Calculator size={20} className="mr-2" />
+                  <Calculator size={20} className="mr-1" />
                   {isCalculating ? 'Calculating...' : 'Run Calculations'}
                 </button>
                 <div className="relative">
-                  <button className="p-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors">
+                  <button className="p-2 bg-slate-600 text-white rounded-none hover:bg-slate-700 transition-colors">
                     <Download size={20} />
                   </button>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Right Pane - 3D Preview & Results */}
-          <div className="lg:col-span-2 flex flex-col">
-            {/* 3D Viewer Toolbar */}
-            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl p-4 rounded-xl border border-white/20 dark:border-slate-700/50 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <Eye size={16} className="text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Visibility:</span>
-                    <div className="flex items-center space-x-2">
-                      {Object.entries(viewerSettings).slice(0, 4).map(([key, value]) => (
-                        <label key={key} className="flex items-center text-xs">
-                          <input
-                            type="checkbox"
-                            checked={value as boolean}
-                            onChange={(e) => setViewerSettings(prev => ({ ...prev, [key]: e.target.checked }))}
-                            className="mr-1 rounded"
-                          />
-                          {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button className="p-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                    <ZoomIn size={16} />
-                  </button>
-                  <button className="p-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                    <ZoomOut size={16} />
-                  </button>
-                  <button className="p-2 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                    <RotateCcw size={16} />
-                  </button>
-                  <button className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded text-sm">
-                    📸 Snapshot
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 3D Viewer */}
-            <div className="flex-1">
+          {/* Right Pane - 3D Preview & BSS Table split vertically */}
+          <div className="flex flex-col flex-1 h-full">
+            <div className="flex-1 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center overflow-hidden">
               <Viewer3D
                 foundationData={foundationData}
                 columnData={columnData}
@@ -328,11 +280,12 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
                 unitSystem={unitSystem}
               />
             </div>
+            <div className="bg-white/80 dark:bg-slate-800/80 sticky bottom-0 max-h-[40vh] overflow-y-auto min-h-0 z-10">
+              <BssTablePanel data={results ? results.combined : {}} />
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-export { RccColumnAndFoundationCalculator }
