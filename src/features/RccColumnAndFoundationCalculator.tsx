@@ -334,3 +334,5 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
     </div>
   );
 };
+
+export { RccColumnAndFoundationCalculator }
