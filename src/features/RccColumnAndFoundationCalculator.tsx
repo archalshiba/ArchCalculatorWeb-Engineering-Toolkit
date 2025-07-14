@@ -5,8 +5,8 @@ import { MaterialsForm } from './components/MaterialsForm';
 import { ReinforcementForm } from './components/ReinforcementForm';
 import { ResultsPanel } from './components/ResultsPanel';
 import { Viewer3D } from './components/Viewer3D';
-import { calculateColumn, calculateFoundation } from '../utils/calculations';
-import { FoundationData, ColumnData, CalculationResults } from '../types/calculator';
+import { calculateColumn, calculateFoundation } from '../../utils/calculations';
+import { FoundationData, ColumnData, CalculationResults } from './types/calculator';
 
 interface RccColumnAndFoundationCalculatorProps {
   onBack: () => void;

@@ -2,10 +2,22 @@ import React from 'react';
 import { Beaker, Wrench, Percent } from 'lucide-react';
 import { InputCard } from './InputCard';
 
+interface MaterialsData {
+  concreteGrade: string;
+  concreteDensity: number;
+  admixtureType: string;
+  admixturePercent: number;
+  slump: number;
+  steelGrade: string;
+  steelDensity: number;
+  concreteWasteFactor: number;
+  steelWasteFactor: number;
+}
+
 interface MaterialsFormProps {
-  data: any;
+  data: MaterialsData;
   unitSystem: 'metric' | 'imperial';
-  onChange: (data: any) => void;
+  onChange: (data: MaterialsData) => void;
 }
 
 export const MaterialsForm: React.FC<MaterialsFormProps> = ({ data, unitSystem, onChange }) => {

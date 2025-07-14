@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { RotateCcw, ZoomIn, ZoomOut, Move3D, Eye, Maximize2, Minimize2 } from 'lucide-react';
-import { FoundationData, ColumnData } from '../../types/calculator';
+import { FoundationData, ColumnData } from '../types/calculator';
 
 interface Viewer3DProps {
   foundationData: FoundationData;

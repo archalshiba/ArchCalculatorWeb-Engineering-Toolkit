@@ -2,10 +2,52 @@ import React from 'react';
 import { Grid, Circle, Square } from 'lucide-react';
 import { InputCard } from './InputCard';
 
+interface ReinforcementData {
+  column: {
+    mainBars: {
+      count: number;
+      diameter: number;
+      cover: number;
+      developmentLength: number;
+    };
+    stirrups: {
+      shape: string;
+      diameter: number;
+      spacing: number;
+      hookType: string;
+      hookLength: number;
+      numberOfLegs: number;
+    };
+  };
+  footing: {
+    bottomBarsX: {
+      count: number;
+      diameter: number;
+      spacing: number;
+    };
+    bottomBarsY: {
+      count: number;
+      diameter: number;
+      spacing: number;
+    };
+    topBars: {
+      enabled: boolean;
+      count: number;
+      diameter: number;
+      spacing: number;
+    };
+    mesh: {
+      enabled: boolean;
+      meshSize: number;
+      barSize: number;
+    };
+  };
+}
+
 interface ReinforcementFormProps {
-  data: any;
+  data: ReinforcementData;
   unitSystem: 'metric' | 'imperial';
-  onChange: (data: any) => void;
+  onChange: (data: ReinforcementData) => void;
 }
 
 export const ReinforcementForm: React.FC<ReinforcementFormProps> = ({ data, unitSystem, onChange }) => {

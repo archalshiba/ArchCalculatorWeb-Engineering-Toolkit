@@ -1,7 +1,7 @@
 import React from 'react';
 import { BarChart3, Download, FileText, Table } from 'lucide-react';
 import { InputCard } from './InputCard';
-import { CalculationResults } from '../../types/calculator';
+import { CalculationResults } from '../types/calculator';
 
 interface ResultsPanelProps {
   results: CalculationResults | null;
