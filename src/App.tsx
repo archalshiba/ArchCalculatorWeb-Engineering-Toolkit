@@ -11,21 +11,12 @@ import { useLanguage } from './hooks/useLanguage';
 import { usePreferences } from './hooks/usePreferences';
 import { calculators, proCalculators, CalculatorItem } from './data/calculators';
 import { themes } from './data/themes';
-import { ConcretePartSelector } from './features/ConcretePartSelector';
+import { ConcretePartSelector, PARTS } from './features/ConcretePartSelector';
 import { RectangularColumnCalculator } from './features/RectangularColumnCalculator';
 import { PartTypeSelector } from './features/PartTypeSelector';
 import { RccColumnAndFoundationCalculator } from './features/RccColumnAndFoundationCalculator';
-import { Calculator, Square, Cuboid as Cube, ArrowRightLeft } from 'lucide-react';
 
-// Focus on quantity calculations only
-const QUANTITY_CATEGORIES = [
-  { id: 'all', label: 'All Quantity Tools', icon: Calculator },
-  { id: 'concrete', label: 'Concrete Quantities', icon: Calculator },
-  { id: 'steel', label: 'Steel Quantities', icon: Calculator },
-  { id: 'masonry', label: 'Masonry Quantities', icon: Square },
-  { id: 'excavation', label: 'Excavation Quantities', icon: Cube },
-  { id: 'converter', label: 'Unit Converters', icon: ArrowRightLeft }
-];
+// Removed unused QUANTITY_CATEGORIES
 
 function App() {
   const { t } = useLanguage();
@@ -112,12 +103,7 @@ function App() {
     setSelectedTags([]);
   };
 
-  // Add this helper to get the part label by id
-  function getPartLabel(partId: string | null) {
-    if (!partId) return '';
-    const part = PARTS.find((p: { id: string }) => p.id === partId);
-    return part ? part.label : '';
-  }
+  // Removed unused getPartLabel
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 font-body transition-all duration-300">
@@ -130,6 +116,7 @@ function App() {
             partId={selectedConcretePart}
             onSelect={(type) => setSelectedPartType(type)}
             onBack={() => setSelectedConcretePart(null)}
+            partLabel={selectedConcretePart ? (PARTS.find(p => p.id === selectedConcretePart)?.label ?? selectedConcretePart) : ''}
           />
         ) : selectedConcretePart && selectedPartType ? (
           selectedPartType === 'rectangular' ? (

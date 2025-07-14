@@ -9,6 +9,10 @@ interface Visualization3DProps {
   stirrupSpacing: number;
   clearCover: number;
   className?: string;
+  viewAngle?: 'isometric' | 'top' | 'front' | 'side';
+  projection?: 'orthographic' | 'perspective';
+  zoom?: number;
+  pinned?: boolean;
 }
 
 interface ViewSettings {
@@ -28,11 +32,13 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
   mainBars,
   stirrupSpacing,
   clearCover,
-  className = ''
+  className = '',
+  viewAngle = 'isometric',
+  projection = 'perspective',
+  zoom = 1,
+  pinned = false
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [rotation, setRotation] = useState({ x: 20, y: 45 });
-  const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [lastMouse, setLastMouse] = useState({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -60,7 +66,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
     ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
     drawColumn(ctx, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
-  }, [width, depth, height, mainBars, stirrupSpacing, clearCover, rotation, zoom, viewSettings]);
+  }, [width, depth, height, mainBars, stirrupSpacing, clearCover, viewAngle, projection, zoom, viewSettings]);
 
   const drawColumn = (ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) => {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -71,28 +77,48 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
     // Calculate scale to fit column in canvas
     const maxDimension = Math.max(width, depth, height);
     const scale = Math.min(canvasWidth, canvasHeight) * 0.5 / maxDimension * zoom;
-    
+
+    // Set rotation based on viewAngle
+    let rotation = { x: 20, y: 45 };
+    switch (viewAngle) {
+      case 'top':
+        rotation = { x: 90, y: 0 };
+        break;
+      case 'front':
+        rotation = { x: 0, y: 0 };
+        break;
+      case 'side':
+        rotation = { x: 0, y: 90 };
+        break;
+      case 'isometric':
+      default:
+        rotation = { x: 20, y: 45 };
+        break;
+    }
+
+    // Use projection type if needed (currently not used in canvas, but can be used for future logic)
+
     // Apply rotation transformations
     const radX = (rotation.x * Math.PI) / 180;
     const radY = (rotation.y * Math.PI) / 180;
-    
+
     // 3D projection matrices
     const cosX = Math.cos(radX);
     const sinX = Math.sin(radX);
     const cosY = Math.cos(radY);
     const sinY = Math.sin(radY);
-    
+
     const project3D = (x: number, y: number, z: number) => {
       // Apply rotation
       const rotatedY = y * cosX - z * sinX;
       const rotatedZ = y * sinX + z * cosX;
       const rotatedX = x * cosY + rotatedZ * sinY;
       const finalZ = -x * sinY + rotatedZ * cosY;
-      
+
       // Project to 2D
       const projectedX = centerX + rotatedX * scale;
       const projectedY = centerY - rotatedY * scale;
-      
+
       return { x: projectedX, y: projectedY, z: finalZ };
     };
 
@@ -443,15 +469,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
-    
-    const deltaX = e.clientX - lastMouse.x;
-    const deltaY = e.clientY - lastMouse.y;
-    
-    setRotation(prev => ({
-      x: Math.max(-90, Math.min(90, prev.x + deltaY * 0.5)),
-      y: prev.y + deltaX * 0.5
-    }));
-    
+    // Dragging is disabled for controlled rotation
     setLastMouse({ x: e.clientX, y: e.clientY });
   };
 
@@ -460,8 +478,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
   };
 
   const resetView = () => {
-    setRotation({ x: 20, y: 45 });
-    setZoom(1);
+    // No-op: rotation and zoom are controlled by props
   };
 
   const toggleSetting = (setting: keyof ViewSettings) => {
@@ -476,7 +493,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
   };
 
   return (
-    <div className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-700/50 shadow-xl ${className} ${isFullscreen ? 'fixed inset-4 z-50' : ''}`}>
+    <div className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-700/50 shadow-xl ${className} ${pinned ? 'ring-4 ring-green-400' : ''} ${isFullscreen ? 'fixed inset-4 z-50' : ''}`}>
       {/* Enhanced Controls */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center">
@@ -493,27 +510,28 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setZoom(prev => Math.min(3, prev * 1.2))}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"
-            title="Zoom In"
-          >
-            <ZoomIn size={16} />
-          </button>
-          <button
-            onClick={() => setZoom(prev => Math.max(0.3, prev / 1.2))}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"
-            title="Zoom Out"
-          >
-            <ZoomOut size={16} />
-          </button>
-          <button
-            onClick={resetView}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"
-            title="Reset View"
-          >
-            <RotateCcw size={16} />
-          </button>
+      {/* Zoom and reset buttons are disabled in controlled mode */}
+      <button
+        className="p-2 text-gray-400 dark:text-gray-600 cursor-not-allowed bg-gray-100 dark:bg-gray-800 rounded-lg"
+        title="Zoom In (controlled by parent)"
+        disabled
+      >
+        <ZoomIn size={16} />
+      </button>
+      <button
+        className="p-2 text-gray-400 dark:text-gray-600 cursor-not-allowed bg-gray-100 dark:bg-gray-800 rounded-lg"
+        title="Zoom Out (controlled by parent)"
+        disabled
+      >
+        <ZoomOut size={16} />
+      </button>
+      <button
+        className="p-2 text-gray-400 dark:text-gray-600 cursor-not-allowed bg-gray-100 dark:bg-gray-800 rounded-lg"
+        title="Reset View (controlled by parent)"
+        disabled
+      >
+        <RotateCcw size={16} />
+      </button>
           <button
             onClick={toggleFullscreen}
             className="p-2 text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"
@@ -629,7 +647,7 @@ export const Visualization3D: React.FC<Visualization3DProps> = ({
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
             <span>Zoom: {(zoom * 100).toFixed(0)}%</span>
-            <span>Rotation: X{rotation.x.toFixed(0)}° Y{rotation.y.toFixed(0)}°</span>
+            <span>View: {viewAngle.charAt(0).toUpperCase() + viewAngle.slice(1)}</span>
           </div>
           <div className="flex items-center space-x-2">
             {viewSettings.showReinforcement && <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded text-xs">Rebar</span>}

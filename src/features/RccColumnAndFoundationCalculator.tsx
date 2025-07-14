@@ -110,7 +110,9 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
     showStirrupsAndTies: true,
     showMesh: true,
     projection: 'perspective' as 'orthographic' | 'perspective',
-    viewAngle: 'isometric' as 'top' | 'front' | 'side' | 'isometric'
+    viewAngle: 'isometric' as 'top' | 'front' | 'side' | 'isometric',
+    zoom: 1,
+    pinned: false
   });
 
   const tabs = [
@@ -271,14 +273,59 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
           </div>
           {/* Right Pane - 3D Preview & BSS Table split vertically */}
           <div className="flex flex-col flex-1 h-full">
-            <div className="flex-1 bg-white/80 dark:bg-slate-800/80 flex items-center justify-center overflow-hidden">
-              <Viewer3D
-                foundationData={foundationData}
-                columnData={columnData}
-                reinforcementData={reinforcementData}
-                settings={viewerSettings}
-                unitSystem={unitSystem}
-              />
+            <div className="flex-1 bg-white/80 dark:bg-slate-800/80 flex flex-col items-center justify-center overflow-hidden relative">
+              {/* Enhanced AutoCAD-style toolbar for view switching and controls */}
+              <div className="absolute top-4 left-4 z-20 flex space-x-2 bg-white/90 dark:bg-slate-900/80 rounded-lg shadow-lg p-2 border border-slate-200 dark:border-slate-700">
+                <button
+                  className={`px-3 py-1 rounded font-semibold text-xs transition-colors border ${viewerSettings.viewAngle === 'isometric' ? 'bg-indigo-500 text-white border-indigo-600' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-indigo-100 dark:hover:bg-indigo-700'}`}
+                  onClick={() => setViewerSettings({ ...viewerSettings, viewAngle: 'isometric', projection: 'perspective' })}
+                >
+                  3D
+                </button>
+                <button
+                  className={`px-3 py-1 rounded font-semibold text-xs transition-colors border ${viewerSettings.viewAngle === 'top' ? 'bg-indigo-500 text-white border-indigo-600' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-indigo-100 dark:hover:bg-indigo-700'}`}
+                  onClick={() => setViewerSettings({ ...viewerSettings, viewAngle: 'top', projection: 'orthographic' })}
+                >
+                  Plan
+                </button>
+                <button
+                  className={`px-3 py-1 rounded font-semibold text-xs transition-colors border ${viewerSettings.viewAngle === 'front' ? 'bg-indigo-500 text-white border-indigo-600' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-indigo-100 dark:hover:bg-indigo-700'}`}
+                  onClick={() => setViewerSettings({ ...viewerSettings, viewAngle: 'front', projection: 'orthographic' })}
+                >
+                  Elevation
+                </button>
+                <button
+                  className={`px-3 py-1 rounded font-semibold text-xs transition-colors border ${viewerSettings.pinned ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-green-100 dark:hover:bg-green-700'}`}
+                  onClick={() => setViewerSettings({ ...viewerSettings, pinned: !viewerSettings.pinned })}
+                  title={viewerSettings.pinned ? 'Unpin View' : 'Pin View'}
+                >
+                  {viewerSettings.pinned ? '📌 Pinned' : '📍 Pin'}
+                </button>
+                <button
+                  className="px-3 py-1 rounded font-semibold text-xs transition-colors border bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-blue-100 dark:hover:bg-blue-700"
+                  onClick={() => setViewerSettings({ ...viewerSettings, zoom: Math.min(3, viewerSettings.zoom * 1.2) })}
+                  title="Zoom In"
+                >
+                  ➕
+                </button>
+                <button
+                  className="px-3 py-1 rounded font-semibold text-xs transition-colors border bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-blue-100 dark:hover:bg-blue-700"
+                  onClick={() => setViewerSettings({ ...viewerSettings, zoom: Math.max(0.3, viewerSettings.zoom / 1.2) })}
+                  title="Zoom Out"
+                >
+                  ➖
+                </button>
+              </div>
+              {/* 3D Viewer */}
+              <div className="w-full h-full flex items-center justify-center">
+                <Viewer3D
+                  foundationData={foundationData}
+                  columnData={columnData}
+                  reinforcementData={reinforcementData}
+                  settings={viewerSettings}
+                  unitSystem={unitSystem}
+                />
+              </div>
             </div>
             <div className="bg-white/80 dark:bg-slate-800/80 sticky bottom-0 max-h-[40vh] overflow-y-auto min-h-0 z-10">
               <BssTablePanel data={results ? results.combined : {}} />
