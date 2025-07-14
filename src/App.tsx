@@ -14,6 +14,7 @@ import { themes } from './data/themes';
 import { ConcretePartSelector } from './features/ConcretePartSelector';
 import { RectangularColumnCalculator } from './features/RectangularColumnCalculator';
 import { PartTypeSelector } from './features/PartTypeSelector';
+import { RccColumnAndFoundationCalculator } from './features/RccColumnAndFoundationCalculator';
 import { Calculator, Square, Cuboid as Cube, ArrowRightLeft } from 'lucide-react';
 
 // Focus on quantity calculations only
@@ -35,6 +36,7 @@ function App() {
   const [showConcreteSelector, setShowConcreteSelector] = useState(false);
   const [selectedConcretePart, setSelectedConcretePart] = useState<string | null>(null);
   const [selectedPartType, setSelectedPartType] = useState<string | null>(null);
+  const [showFoundationCalculator, setShowFoundationCalculator] = useState(false);
 
   // Apply theme on mount and when theme changes
   useEffect(() => {
@@ -53,6 +55,12 @@ function App() {
     if (calculator.id === 'concrete-calculator') {
       setShowConcreteSelector(true);
       setSelectedConcretePart(null);
+      return;
+    }
+    
+    // Add handler for foundation calculator
+    if (calculator.id === 'rcc-foundation-calculator') {
+      setShowFoundationCalculator(true);
       return;
     }
     
@@ -114,7 +122,9 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 font-body transition-all duration-300">
       {/* Show Concrete Selector or Calculator if active */}
-      {showConcreteSelector ? (
+      {showFoundationCalculator ? (
+        <RccColumnAndFoundationCalculator onBack={() => setShowFoundationCalculator(false)} />
+      ) : showConcreteSelector ? (
         selectedConcretePart && !selectedPartType ? (
           <PartTypeSelector
             partId={selectedConcretePart}

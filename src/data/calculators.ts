@@ -37,6 +37,14 @@ export const calculators: CalculatorItem[] = [
     tags: ['structural', 'civil', 'materials']
   },
   {
+    id: 'rcc-foundation-calculator',
+    title: 'RCC Foundation & Column Calculator',
+    description: 'Professional foundation and column quantity calculator with 3D visualization',
+    icon: Building,
+    category: 'quantity',
+    tags: ['structural', 'civil', 'foundation', 'professional']
+  },
+  {
     id: 'excavation-calculator',
     title: 'Excavation Calculator',
     description: 'Estimate earthwork and excavation quantities',

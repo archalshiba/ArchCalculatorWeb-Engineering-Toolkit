@@ -287,3 +287,119 @@ export const calculateCharacteristicStrength = (values: number[]): number => {
   const stdDev = calculateStandardDeviation(values);
   return mean - 1.65 * stdDev;
 };
+
+// Foundation and Column calculation functions
+export const calculateColumn = (columnData: any, materialsData: any, reinforcementData: any) => {
+  // Calculate column volume based on shape
+  let volume = 0;
+  
+  switch (columnData.shape) {
+    case 'rectangular':
+      volume = (columnData.width * columnData.depth * columnData.height) / 1000000000; // Convert mm³ to m³
+      break;
+    case 'circular':
+      volume = (Math.PI * Math.pow(columnData.diameter / 2, 2) * columnData.height) / 1000000000;
+      break;
+    case 'tshape':
+      const flangeVolume = columnData.flangeWidth * columnData.flangeThickness * columnData.height;
+      const webVolume = columnData.webWidth * (columnData.height - columnData.flangeThickness) * columnData.webThickness;
+      volume = (flangeVolume + webVolume) / 1000000000;
+      break;
+    default:
+      volume = (columnData.width * columnData.depth * columnData.height) / 1000000000;
+  }
+  
+  // Apply waste factor
+  const concreteVolume = volume * (1 + materialsData.concreteWasteFactor / 100);
+  
+  // Calculate steel weights
+  const barArea = Math.PI * Math.pow(reinforcementData.mainBars.diameter / 2, 2) / 1000000; // mm² to m²
+  const barLength = columnData.height / 1000; // mm to m
+  const mainBarsWeight = reinforcementData.mainBars.count * barArea * barLength * materialsData.steelDensity;
+  
+  // Calculate stirrups
+  const stirrupPerimeter = 2 * (columnData.width + columnData.depth) / 1000; // mm to m
+  const stirrupArea = Math.PI * Math.pow(reinforcementData.stirrups.diameter / 2, 2) / 1000000;
+  const numberOfStirrupsApprox = Math.floor(columnData.height / reinforcementData.stirrups.spacing) + 1;
+  const stirrupsWeight = numberOfStirrupsApprox * stirrupPerimeter * stirrupArea * materialsData.steelDensity;
+  
+  const totalSteelWeight = (mainBarsWeight + stirrupsWeight) * (1 + materialsData.steelWasteFactor / 100);
+  
+  // Calculate costs (example rates)
+  const concreteRate = 150; // per m³
+  const steelRate = 60; // per kg
+  
+  const concreteCost = concreteVolume * concreteRate;
+  const mainBarsCost = mainBarsWeight * steelRate;
+  const stirrupsCost = stirrupsWeight * steelRate;
+  const totalCost = concreteCost + mainBarsCost + stirrupsCost;
+  
+  return {
+    concreteVolume,
+    mainBarsWeight,
+    stirrupsWeight,
+    totalSteelWeight,
+    concreteCost,
+    mainBarsCost,
+    stirrupsCost,
+    totalCost
+  };
+};
+
+export const calculateFoundation = (foundationData: any, materialsData: any, reinforcementData: any) => {
+  // Calculate foundation volume
+  const volume = (foundationData.width * foundationData.length * foundationData.thickness) / 1000000000; // mm³ to m³
+  const concreteVolume = volume * (1 + materialsData.concreteWasteFactor / 100);
+  
+  // Calculate bottom bars
+  const bottomBarAreaX = Math.PI * Math.pow(reinforcementData.bottomBarsX.diameter / 2, 2) / 1000000;
+  const bottomBarLengthX = foundationData.length / 1000;
+  const bottomBarsWeightX = reinforcementData.bottomBarsX.count * bottomBarAreaX * bottomBarLengthX * materialsData.steelDensity;
+  
+  const bottomBarAreaY = Math.PI * Math.pow(reinforcementData.bottomBarsY.diameter / 2, 2) / 1000000;
+  const bottomBarLengthY = foundationData.width / 1000;
+  const bottomBarsWeightY = reinforcementData.bottomBarsY.count * bottomBarAreaY * bottomBarLengthY * materialsData.steelDensity;
+  
+  const bottomBarsWeight = bottomBarsWeightX + bottomBarsWeightY;
+  
+  // Calculate top bars (if enabled)
+  let topBarsWeight = 0;
+  if (reinforcementData.topBars.enabled) {
+    const topBarArea = Math.PI * Math.pow(reinforcementData.topBars.diameter / 2, 2) / 1000000;
+    const topBarLength = Math.max(foundationData.width, foundationData.length) / 1000;
+    topBarsWeight = reinforcementData.topBars.count * topBarArea * topBarLength * materialsData.steelDensity;
+  }
+  
+  // Calculate mesh weight (if enabled)
+  let meshWeight = 0;
+  if (reinforcementData.mesh.enabled) {
+    const meshArea = Math.PI * Math.pow(reinforcementData.mesh.barSize / 2, 2) / 1000000;
+    const meshLength = (foundationData.width + foundationData.length) * 2 / 1000; // Approximate
+    meshWeight = meshLength * meshArea * materialsData.steelDensity;
+  }
+  
+  const totalSteelWeight = (bottomBarsWeight + topBarsWeight + meshWeight) * (1 + materialsData.steelWasteFactor / 100);
+  
+  // Calculate costs
+  const concreteRate = 150; // per m³
+  const steelRate = 60; // per kg
+  
+  const concreteCost = concreteVolume * concreteRate;
+  const bottomBarsCost = bottomBarsWeight * steelRate;
+  const topBarsCost = topBarsWeight * steelRate;
+  const meshCost = meshWeight * steelRate;
+  const totalCost = concreteCost + bottomBarsCost + topBarsCost + meshCost;
+  
+  return {
+    concreteVolume,
+    bottomBarsWeight,
+    topBarsWeight,
+    meshWeight,
+    totalSteelWeight,
+    concreteCost,
+    bottomBarsCost,
+    topBarsCost,
+    meshCost,
+    totalCost
+  };
+};
