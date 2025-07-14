@@ -1,7 +1,7 @@
 import React from 'react';
 import { Ruler, Box, Layers } from 'lucide-react';
 import { InputCard } from './InputCard';
-import { FoundationData, ColumnData } from '../../types/calculator';
+import { FoundationData, ColumnData } from '../types/calculator';
 
 interface GeometryFormProps {
   foundationData: FoundationData;
