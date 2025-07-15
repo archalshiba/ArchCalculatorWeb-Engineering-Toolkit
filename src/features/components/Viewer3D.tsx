@@ -32,8 +32,31 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   const [lastMouse, setLastMouse] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState<{ x: number; y: number }>({ x: 20, y: 45 });
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Update rotation based on view angle changes
+  useEffect(() => {
+    switch (settings.viewAngle) {
+      case 'top':
+        setRotation({ x: 90, y: 0 });
+        break;
+      case 'front':
+        setRotation({ x: 0, y: 0 });
+        break;
+      case 'side':
+        setRotation({ x: 0, y: 90 });
+        break;
+      case 'isometric':
+      default:
+        setRotation({ x: 20, y: 45 });
+        break;
+    }
+  }, [settings.viewAngle]);
+
+  // Auto-fit and center the model
+  useEffect(() => {
+    // This will be enhanced in Phase 2 with proper bounding box calculations
+    // For now, we'll use the zoom setting from parent
+  }, [foundationData, columnData, settings.zoom]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -59,7 +82,10 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       foundationData.length, 
       foundationData.thickness + columnData.height
     );
-    const scale = Math.min(canvasWidth, canvasHeight) * 0.3 / maxDimension * (settings.zoom ?? 1);
+    
+    // Enhanced auto-fit calculation
+    const baseScale = Math.min(canvasWidth, canvasHeight) * 0.25 / maxDimension;
+    const scale = baseScale * (settings.zoom ?? 1);
     // Use rotation state
     const radX = (rotation.x * Math.PI) / 180;
     const radY = (rotation.y * Math.PI) / 180;
@@ -80,7 +106,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     };
 
     // Draw grid if enabled
-    if (settings.showConcrete) {
+    if (settings.showConcrete && settings.viewAngle !== 'top') {
       drawGrid(ctx, project3D, scale);
     }
 
@@ -95,8 +121,13 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     }
 
     // Draw reinforcement
-    if (settings.showMainBars || settings.showStirrupsAndTies || settings.showMesh) {
+    if (settings.showMainBars || settings.showStirrupsAndTies) {
       drawReinforcement(ctx, project3D);
+    }
+    
+    // Draw mesh separately
+    if (settings.showMesh) {
+      drawMesh(ctx, project3D);
     }
 
     // Draw dimensions
@@ -297,10 +328,6 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     if (settings.showStirrupsAndTies) {
       drawStirrupsAndTies(ctx, project3D);
     }
-    
-    if (settings.showMesh) {
-      drawMesh(ctx, project3D);
-    }
   };
 
   const drawMainBars = (ctx: CanvasRenderingContext2D, project3D: Function) => {
@@ -309,8 +336,11 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     const effectiveDepth = columnData.depth - 2 * cover;
     const count = reinforcementData.column.mainBars.count;
     
+    // Enhanced rebar visualization
     ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = Math.max(2, 6 * (settings.zoom ?? 1));
+    ctx.shadowColor = '#f59e0b';
+    ctx.shadowBlur = 2;
     
     // Calculate bar positions for rectangular arrangement
     const barsPerSide = Math.ceil(Math.sqrt(count));
@@ -331,15 +361,18 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
         ctx.stroke();
         
         // Draw bar end circles
+        const circleRadius = Math.max(2, 4 * (settings.zoom ?? 1));
         ctx.fillStyle = '#fbbf24';
         ctx.beginPath();
-        ctx.arc(topPoint.x, topPoint.y, 3, 0, 2 * Math.PI);
+        ctx.arc(topPoint.x, topPoint.y, circleRadius, 0, 2 * Math.PI);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(bottomPoint.x, bottomPoint.y, 3, 0, 2 * Math.PI);
+        ctx.arc(bottomPoint.x, bottomPoint.y, circleRadius, 0, 2 * Math.PI);
         ctx.fill();
       }
     }
+    
+    ctx.shadowBlur = 0; // Reset shadow
   };
 
   const drawStirrupsAndTies = (ctx: CanvasRenderingContext2D, project3D: Function) => {
@@ -348,8 +381,11 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     const effectiveDepth = columnData.depth - 2 * cover;
     const spacing = reinforcementData.column.stirrups.spacing;
     
+    // Enhanced stirrup visualization
     ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(1, 3 * (settings.zoom ?? 1));
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur = 1;
     
     const numStirrupsVisible = Math.min(8, Math.floor(columnData.height / spacing));
     const stirrupInterval = columnData.height / (numStirrupsVisible + 1);
@@ -374,7 +410,18 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       });
       ctx.closePath();
       ctx.stroke();
+      
+      // Add corner markers for stirrups
+      const markerRadius = Math.max(1, 2 * (settings.zoom ?? 1));
+      corners.forEach(corner => {
+        ctx.beginPath();
+        ctx.arc(corner.x, corner.y, markerRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ef4444';
+        ctx.fill();
+      });
     }
+    
+    ctx.shadowBlur = 0; // Reset shadow
   };
 
   const drawMesh = (ctx: CanvasRenderingContext2D, project3D: Function) => {
@@ -384,8 +431,10 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
     const w = foundationData.width / 2;
     const l = foundationData.length / 2;
     
+    // Enhanced mesh visualization
     ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = Math.max(0.5, 1.5 * (settings.zoom ?? 1));
+    ctx.globalAlpha = 0.7;
     
     // Draw mesh grid on foundation top
     for (let x = -w; x <= w; x += meshSize) {
@@ -405,6 +454,8 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
       ctx.lineTo(end.x, end.y);
       ctx.stroke();
     }
+    
+    ctx.globalAlpha = 1.0; // Reset alpha
   };
 
   const drawDimensions = (ctx: CanvasRenderingContext2D, project3D: Function, scale: number) => {
@@ -496,12 +547,12 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   };
 
   const resetView = () => {
-    setRotation({ x: 20, y: 45 });
+    // Reset will be handled by parent component
     setPan({ x: 0, y: 0 });
   };
 
   return (
-    <div className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-700/50 shadow-xl ${isFullscreen ? 'fixed inset-4 z-50' : 'h-full'}`}>
+    <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-700/50 shadow-xl h-full">
       {/* Canvas */}
       <div className="relative h-full">
         <canvas
@@ -526,7 +577,7 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
           onTouchEnd={() => setIsDragging(false)}
         />
         {/* Controls Overlay */}
-        <div className="absolute bottom-4 left-4 right-4 bg-black/80 backdrop-blur-sm text-white text-xs px-4 py-3 rounded-xl border border-white/10">
+        <div className="absolute bottom-4 left-4 right-4 bg-black/90 backdrop-blur-sm text-white text-xs px-4 py-3 rounded-xl border border-white/10 shadow-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
