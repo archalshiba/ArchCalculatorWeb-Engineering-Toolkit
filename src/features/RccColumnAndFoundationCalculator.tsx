@@ -137,14 +137,14 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
   const handleZoomIn = () => {
     setViewerSettings(prev => ({
       ...prev,
-      zoom: Math.min(3, prev.zoom * 1.2)
+      zoom: Math.min(3, (prev.zoom || 1) * 1.2)
     }));
   };
 
   const handleZoomOut = () => {
     setViewerSettings(prev => ({
       ...prev,
-      zoom: Math.max(0.3, prev.zoom / 1.2)
+      zoom: Math.max(0.3, (prev.zoom || 1) / 1.2)
     }));
   };
 

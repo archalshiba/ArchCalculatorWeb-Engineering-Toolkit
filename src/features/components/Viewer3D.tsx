@@ -1,6 +1,17 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { RotateCcw, ZoomIn, Move3D, Eye } from 'lucide-react';
-// ...existing code...
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { 
+  OrbitControls, 
+  PerspectiveCamera, 
+  OrthographicCamera,
+  Text,
+  Box,
+  Cylinder,
+  Environment,
+  Grid,
+  Html
+} from '@react-three/drei';
+import * as THREE from 'three';
 import { FoundationData, ColumnData } from '../types/calculator';
 
 interface Viewer3DProps {
@@ -15,10 +26,505 @@ interface Viewer3DProps {
     projection: 'orthographic' | 'perspective';
     viewAngle: 'top' | 'front' | 'side' | 'isometric';
     zoom?: number;
+    pinned?: boolean;
   };
   unitSystem: 'metric' | 'imperial';
 }
 
+// Foundation Component
+const Foundation: React.FC<{
+  data: FoundationData;
+  visible: boolean;
+}> = ({ data, visible }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  
+  if (!visible) return null;
+
+  return (
+    <group position={[0, -data.thickness / 2000, 0]}>
+      <Box
+        ref={meshRef}
+        args={[data.width / 1000, data.thickness / 1000, data.length / 1000]}
+        position={[0, 0, 0]}
+      >
+        <meshPhysicalMaterial
+          color="#8B9DC3"
+          roughness={0.8}
+          metalness={0.1}
+          clearcoat={0.1}
+          transparent={false}
+        />
+      </Box>
+      
+      {/* Foundation edges for better definition */}
+      <lineSegments>
+        <edgesGeometry args={[new THREE.BoxGeometry(data.width / 1000, data.thickness / 1000, data.length / 1000)]} />
+        <lineBasicMaterial color="#2D3748" linewidth={2} />
+      </lineSegments>
+    </group>
+  );
+};
+
+// Column Component
+const Column: React.FC<{
+  data: ColumnData;
+  visible: boolean;
+}> = ({ data, visible }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  
+  if (!visible) return null;
+
+  const renderColumnShape = () => {
+    switch (data.shape) {
+      case 'rectangular':
+        return (
+          <Box
+            ref={meshRef}
+            args={[data.width / 1000, data.height / 1000, data.depth / 1000]}
+            position={[0, data.height / 2000, 0]}
+          >
+            <meshPhysicalMaterial
+              color="#4A90E2"
+              roughness={0.7}
+              metalness={0.1}
+              clearcoat={0.2}
+            />
+          </Box>
+        );
+      
+      case 'circular':
+        return (
+          <Cylinder
+            ref={meshRef}
+            args={[data.diameter / 2000, data.diameter / 2000, data.height / 1000, 32]}
+            position={[0, data.height / 2000, 0]}
+          >
+            <meshPhysicalMaterial
+              color="#4A90E2"
+              roughness={0.7}
+              metalness={0.1}
+              clearcoat={0.2}
+            />
+          </Cylinder>
+        );
+      
+      default:
+        return (
+          <Box
+            ref={meshRef}
+            args={[data.width / 1000, data.height / 1000, data.depth / 1000]}
+            position={[0, data.height / 2000, 0]}
+          >
+            <meshPhysicalMaterial
+              color="#4A90E2"
+              roughness={0.7}
+              metalness={0.1}
+              clearcoat={0.2}
+            />
+          </Box>
+        );
+    }
+  };
+
+  return (
+    <group>
+      {renderColumnShape()}
+      
+      {/* Column edges */}
+      <lineSegments position={[0, data.height / 2000, 0]}>
+        <edgesGeometry args={[new THREE.BoxGeometry(data.width / 1000, data.height / 1000, data.depth / 1000)]} />
+        <lineBasicMaterial color="#1A365D" linewidth={2} />
+      </lineSegments>
+    </group>
+  );
+};
+
+// Main Bars Component
+const MainBars: React.FC<{
+  columnData: ColumnData;
+  reinforcementData: any;
+  visible: boolean;
+}> = ({ columnData, reinforcementData, visible }) => {
+  if (!visible) return null;
+
+  const cover = reinforcementData.column.mainBars.cover;
+  const effectiveWidth = columnData.width - 2 * cover;
+  const effectiveDepth = columnData.depth - 2 * cover;
+  const count = reinforcementData.column.mainBars.count;
+  const diameter = reinforcementData.column.mainBars.diameter;
+  
+  const bars = useMemo(() => {
+    const barPositions = [];
+    const barsPerSide = Math.ceil(Math.sqrt(count));
+    const barSpacingX = effectiveWidth / (barsPerSide - 1);
+    const barSpacingZ = effectiveDepth / (barsPerSide - 1);
+    
+    for (let i = 0; i < barsPerSide && i * barsPerSide < count; i++) {
+      for (let j = 0; j < barsPerSide && i * barsPerSide + j < count; j++) {
+        const barX = (-effectiveWidth/2 + i * barSpacingX) / 1000;
+        const barZ = (-effectiveDepth/2 + j * barSpacingZ) / 1000;
+        barPositions.push({ x: barX, z: barZ });
+      }
+    }
+    return barPositions;
+  }, [effectiveWidth, effectiveDepth, count]);
+
+  return (
+    <group>
+      {bars.map((pos, index) => (
+        <Cylinder
+          key={index}
+          args={[diameter / 2000, diameter / 2000, columnData.height / 1000, 8]}
+          position={[pos.x, columnData.height / 2000, pos.z]}
+          rotation={[0, 0, 0]}
+        >
+          <meshStandardMaterial
+            color="#D4AF37"
+            metalness={0.8}
+            roughness={0.2}
+          />
+        </Cylinder>
+      ))}
+    </group>
+  );
+};
+
+// Stirrups Component
+const Stirrups: React.FC<{
+  columnData: ColumnData;
+  reinforcementData: any;
+  visible: boolean;
+}> = ({ columnData, reinforcementData, visible }) => {
+  if (!visible) return null;
+
+  const cover = reinforcementData.column.mainBars.cover;
+  const effectiveWidth = columnData.width - 2 * cover;
+  const effectiveDepth = columnData.depth - 2 * cover;
+  const spacing = reinforcementData.column.stirrups.spacing;
+  const diameter = reinforcementData.column.stirrups.diameter;
+  
+  const stirrupPositions = useMemo(() => {
+    const positions = [];
+    const numStirrupsVisible = Math.min(12, Math.floor(columnData.height / spacing));
+    const stirrupInterval = columnData.height / (numStirrupsVisible + 1);
+    
+    for (let i = 1; i <= numStirrupsVisible; i++) {
+      positions.push(i * stirrupInterval);
+    }
+    return positions;
+  }, [columnData.height, spacing]);
+
+  return (
+    <group>
+      {stirrupPositions.map((yPos, index) => (
+        <group key={index} position={[0, yPos / 1000, 0]}>
+          {/* Stirrup rectangle made of 4 cylinders */}
+          <Cylinder
+            args={[diameter / 2000, diameter / 2000, effectiveWidth / 1000, 6]}
+            position={[0, 0, -effectiveDepth / 2000]}
+            rotation={[0, 0, Math.PI / 2]}
+          >
+            <meshStandardMaterial color="#E53E3E" metalness={0.7} roughness={0.3} />
+          </Cylinder>
+          <Cylinder
+            args={[diameter / 2000, diameter / 2000, effectiveWidth / 1000, 6]}
+            position={[0, 0, effectiveDepth / 2000]}
+            rotation={[0, 0, Math.PI / 2]}
+          >
+            <meshStandardMaterial color="#E53E3E" metalness={0.7} roughness={0.3} />
+          </Cylinder>
+          <Cylinder
+            args={[diameter / 2000, diameter / 2000, effectiveDepth / 1000, 6]}
+            position={[-effectiveWidth / 2000, 0, 0]}
+            rotation={[Math.PI / 2, 0, 0]}
+          >
+            <meshStandardMaterial color="#E53E3E" metalness={0.7} roughness={0.3} />
+          </Cylinder>
+          <Cylinder
+            args={[diameter / 2000, diameter / 2000, effectiveDepth / 1000, 6]}
+            position={[effectiveWidth / 2000, 0, 0]}
+            rotation={[Math.PI / 2, 0, 0]}
+          >
+            <meshStandardMaterial color="#E53E3E" metalness={0.7} roughness={0.3} />
+          </Cylinder>
+        </group>
+      ))}
+    </group>
+  );
+};
+
+// Mesh Component
+const ReinforcementMesh: React.FC<{
+  foundationData: FoundationData;
+  reinforcementData: any;
+  visible: boolean;
+}> = ({ foundationData, reinforcementData, visible }) => {
+  if (!visible || !reinforcementData.footing.mesh.enabled) return null;
+
+  const meshSize = reinforcementData.footing.mesh.meshSize;
+  const barSize = reinforcementData.footing.mesh.barSize;
+  
+  const meshLines = useMemo(() => {
+    const lines = [];
+    const w = foundationData.width / 2000;
+    const l = foundationData.length / 2000;
+    
+    // X-direction lines
+    for (let x = -w; x <= w; x += meshSize / 1000) {
+      lines.push({
+        start: [x, -0.01, -l],
+        end: [x, -0.01, l],
+        direction: 'x'
+      });
+    }
+    
+    // Z-direction lines
+    for (let z = -l; z <= l; z += meshSize / 1000) {
+      lines.push({
+        start: [-w, -0.01, z],
+        end: [w, -0.01, z],
+        direction: 'z'
+      });
+    }
+    
+    return lines;
+  }, [foundationData.width, foundationData.length, meshSize]);
+
+  return (
+    <group>
+      {meshLines.map((line, index) => {
+        const length = line.direction === 'x' 
+          ? foundationData.length / 1000 
+          : foundationData.width / 1000;
+        const midPoint = [
+          (line.start[0] + line.end[0]) / 2,
+          (line.start[1] + line.end[1]) / 2,
+          (line.start[2] + line.end[2]) / 2
+        ];
+        
+        return (
+          <Cylinder
+            key={index}
+            args={[barSize / 2000, barSize / 2000, length, 6]}
+            position={midPoint}
+            rotation={line.direction === 'x' ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2]}
+          >
+            <meshStandardMaterial
+              color="#38A169"
+              metalness={0.6}
+              roughness={0.4}
+              transparent
+              opacity={0.8}
+            />
+          </Cylinder>
+        );
+      })}
+    </group>
+  );
+};
+
+// Dimensions Component
+const Dimensions: React.FC<{
+  foundationData: FoundationData;
+  columnData: ColumnData;
+  unitSystem: 'metric' | 'imperial';
+}> = ({ foundationData, columnData, unitSystem }) => {
+  const unit = unitSystem === 'metric' ? 'mm' : 'in';
+  
+  return (
+    <group>
+      {/* Foundation width dimension */}
+      <Html
+        position={[0, -foundationData.thickness / 1000 - 0.2, -foundationData.length / 2000 - 0.3]}
+        center
+      >
+        <div className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg">
+          {foundationData.width}{unit}
+        </div>
+      </Html>
+      
+      {/* Foundation length dimension */}
+      <Html
+        position={[-foundationData.width / 2000 - 0.3, -foundationData.thickness / 1000 - 0.2, 0]}
+        center
+      >
+        <div className="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg transform -rotate-90">
+          {foundationData.length}{unit}
+        </div>
+      </Html>
+      
+      {/* Column height dimension */}
+      <Html
+        position={[columnData.width / 2000 + 0.3, columnData.height / 2000, 0]}
+        center
+      >
+        <div className="bg-green-600 text-white px-2 py-1 rounded text-xs font-bold shadow-lg transform -rotate-90">
+          {columnData.height}{unit}
+        </div>
+      </Html>
+    </group>
+  );
+};
+
+// Camera Controller Component
+const CameraController: React.FC<{
+  viewAngle: string;
+  projection: string;
+  zoom: number;
+  foundationData: FoundationData;
+  columnData: ColumnData;
+}> = ({ viewAngle, projection, zoom, foundationData, columnData }) => {
+  const { camera, gl } = useThree();
+  const controlsRef = useRef<any>();
+  
+  // Calculate bounding box for auto-fit
+  const boundingBox = useMemo(() => {
+    const maxDim = Math.max(
+      foundationData.width / 1000,
+      foundationData.length / 1000,
+      (foundationData.thickness + columnData.height) / 1000
+    );
+    return maxDim * 1.5; // Add some padding
+  }, [foundationData, columnData]);
+
+  useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const distance = boundingBox * zoom;
+    let position: [number, number, number];
+    let target: [number, number, number] = [0, 0, 0];
+
+    switch (viewAngle) {
+      case 'top':
+        position = [0, distance, 0];
+        break;
+      case 'front':
+        position = [0, 0, distance];
+        break;
+      case 'side':
+        position = [distance, 0, 0];
+        break;
+      case 'isometric':
+      default:
+        position = [distance * 0.7, distance * 0.7, distance * 0.7];
+        break;
+    }
+
+    camera.position.set(...position);
+    controlsRef.current.target.set(...target);
+    controlsRef.current.update();
+  }, [viewAngle, zoom, boundingBox, camera]);
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enablePan={true}
+      enableZoom={true}
+      enableRotate={true}
+      dampingFactor={0.05}
+      enableDamping={true}
+      maxDistance={boundingBox * 3}
+      minDistance={boundingBox * 0.1}
+    />
+  );
+};
+
+// Main Scene Component
+const Scene: React.FC<{
+  foundationData: FoundationData;
+  columnData: ColumnData;
+  reinforcementData: any;
+  settings: any;
+  unitSystem: 'metric' | 'imperial';
+}> = ({ foundationData, columnData, reinforcementData, settings, unitSystem }) => {
+  return (
+    <>
+      {/* Lighting */}
+      <ambientLight intensity={0.4} />
+      <directionalLight
+        position={[10, 10, 5]}
+        intensity={1}
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+      />
+      <directionalLight
+        position={[-10, 10, -5]}
+        intensity={0.5}
+      />
+
+      {/* Environment */}
+      <Environment preset="city" />
+      
+      {/* Grid */}
+      <Grid
+        position={[0, -foundationData.thickness / 1000 - 0.1, 0]}
+        args={[20, 20]}
+        cellSize={0.5}
+        cellThickness={0.5}
+        cellColor="#6f6f6f"
+        sectionSize={2}
+        sectionThickness={1}
+        sectionColor="#9d4b4b"
+        fadeDistance={30}
+        fadeStrength={1}
+        followCamera={false}
+        infiniteGrid={true}
+      />
+
+      {/* Foundation */}
+      <Foundation
+        data={foundationData}
+        visible={settings.showConcrete}
+      />
+
+      {/* Column */}
+      <Column
+        data={columnData}
+        visible={settings.showConcrete}
+      />
+
+      {/* Main Bars */}
+      <MainBars
+        columnData={columnData}
+        reinforcementData={reinforcementData}
+        visible={settings.showMainBars}
+      />
+
+      {/* Stirrups */}
+      <Stirrups
+        columnData={columnData}
+        reinforcementData={reinforcementData}
+        visible={settings.showStirrupsAndTies}
+      />
+
+      {/* Mesh */}
+      <ReinforcementMesh
+        foundationData={foundationData}
+        reinforcementData={reinforcementData}
+        visible={settings.showMesh}
+      />
+
+      {/* Dimensions */}
+      <Dimensions
+        foundationData={foundationData}
+        columnData={columnData}
+        unitSystem={unitSystem}
+      />
+
+      {/* Camera Controller */}
+      <CameraController
+        viewAngle={settings.viewAngle}
+        projection={settings.projection}
+        zoom={settings.zoom || 1}
+        foundationData={foundationData}
+        columnData={columnData}
+      />
+    </>
+  );
+};
+
+// Main Viewer3D Component
 export const Viewer3D: React.FC<Viewer3DProps> = ({
   foundationData,
   columnData,
@@ -26,604 +532,55 @@ export const Viewer3D: React.FC<Viewer3DProps> = ({
   settings,
   unitSystem
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragMode, setDragMode] = useState<'rotate' | 'pan'>('rotate');
-  const [lastMouse, setLastMouse] = useState({ x: 0, y: 0 });
-  const [rotation, setRotation] = useState<{ x: number; y: number }>({ x: 20, y: 45 });
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Update rotation based on view angle changes
   useEffect(() => {
-    switch (settings.viewAngle) {
-      case 'top':
-        setRotation({ x: 90, y: 0 });
-        break;
-      case 'front':
-        setRotation({ x: 0, y: 0 });
-        break;
-      case 'side':
-        setRotation({ x: 0, y: 90 });
-        break;
-      case 'isometric':
-      default:
-        setRotation({ x: 20, y: 45 });
-        break;
-    }
-  }, [settings.viewAngle]);
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
-  // Auto-fit and center the model
-  useEffect(() => {
-    // This will be enhanced in Phase 2 with proper bounding box calculations
-    // For now, we'll use the zoom setting from parent
-  }, [foundationData, columnData, settings.zoom]);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    // Set canvas size
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    drawFoundationAndColumn(ctx, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
-  }, [foundationData, columnData, reinforcementData, settings, rotation, pan]);
-
-  const drawFoundationAndColumn = (ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) => {
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    // Pan and rotation
-    const centerX = canvasWidth / 2 + pan.x;
-    const centerY = canvasHeight / 2 + pan.y;
-    // Calculate scale to fit both foundation and column
-    const maxDimension = Math.max(
-      foundationData.width, 
-      foundationData.length, 
-      foundationData.thickness + columnData.height
+  if (isLoading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-indigo-900 rounded-2xl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading 3D Scene...</p>
+        </div>
+      </div>
     );
-    
-    // Enhanced auto-fit calculation
-    const baseScale = Math.min(canvasWidth, canvasHeight) * 0.25 / maxDimension;
-    const scale = baseScale * (settings.zoom ?? 1);
-    // Use rotation state
-    const radX = (rotation.x * Math.PI) / 180;
-    const radY = (rotation.y * Math.PI) / 180;
-    const cosX = Math.cos(radX);
-    const sinX = Math.sin(radX);
-    const cosY = Math.cos(radY);
-    const sinY = Math.sin(radY);
-    const project3D = (x: number, y: number, z: number) => {
-      // Apply rotation
-      const rotatedY = y * cosX - z * sinX;
-      const rotatedZ = y * sinX + z * cosX;
-      const rotatedX = x * cosY + rotatedZ * sinY;
-      const finalZ = -x * sinY + rotatedZ * cosY;
-      // Project to 2D
-      const projectedX = centerX + rotatedX * scale;
-      const projectedY = centerY - rotatedY * scale;
-      return { x: projectedX, y: projectedY, z: finalZ };
-    };
-
-    // Draw grid if enabled
-    if (settings.showConcrete && settings.viewAngle !== 'top') {
-      drawGrid(ctx, project3D, scale);
-    }
-
-    // Draw foundation
-    if (settings.showConcrete) {
-      drawFoundation(ctx, project3D);
-    }
-
-    // Draw column
-    if (settings.showConcrete) {
-      drawColumn(ctx, project3D);
-    }
-
-    // Draw reinforcement
-    if (settings.showMainBars || settings.showStirrupsAndTies) {
-      drawReinforcement(ctx, project3D);
-    }
-    
-    // Draw mesh separately
-    if (settings.showMesh) {
-      drawMesh(ctx, project3D);
-    }
-
-    // Draw dimensions
-    drawDimensions(ctx, project3D, scale);
-  };
-
-  const drawGrid = (ctx: CanvasRenderingContext2D, project3D: Function, scale: number) => {
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 0.5;
-    
-    const gridSize = Math.max(foundationData.width, foundationData.length) * 1.5;
-    const gridSpacing = Math.max(foundationData.width, foundationData.length) / 10;
-    
-    for (let i = -gridSize; i <= gridSize; i += gridSpacing) {
-      // X-axis lines
-      const start1 = project3D(i, -foundationData.thickness - 50, -gridSize);
-      const end1 = project3D(i, -foundationData.thickness - 50, gridSize);
-      ctx.beginPath();
-      ctx.moveTo(start1.x, start1.y);
-      ctx.lineTo(end1.x, end1.y);
-      ctx.stroke();
-      
-      // Z-axis lines
-      const start2 = project3D(-gridSize, -foundationData.thickness - 50, i);
-      const end2 = project3D(gridSize, -foundationData.thickness - 50, i);
-      ctx.beginPath();
-      ctx.moveTo(start2.x, start2.y);
-      ctx.lineTo(end2.x, end2.y);
-      ctx.stroke();
-    }
-  };
-
-  const drawFoundation = (ctx: CanvasRenderingContext2D, project3D: Function) => {
-    const w = foundationData.width / 2;
-    const l = foundationData.length / 2;
-    const t = foundationData.thickness;
-    
-    const vertices = [
-      // Bottom face
-      { x: -w, y: -t, z: -l },
-      { x: w, y: -t, z: -l },
-      { x: w, y: -t, z: l },
-      { x: -w, y: -t, z: l },
-      // Top face
-      { x: -w, y: 0, z: -l },
-      { x: w, y: 0, z: -l },
-      { x: w, y: 0, z: l },
-      { x: -w, y: 0, z: l }
-    ];
-
-    const projectedVertices = vertices.map(v => project3D(v.x, v.y, v.z));
-
-    const faces = [
-      { indices: [0, 1, 2, 3], color: '#94a3b8' }, // Bottom
-      { indices: [4, 7, 6, 5], color: '#cbd5e1' }, // Top
-      { indices: [0, 4, 5, 1], color: '#64748b' }, // Front
-      { indices: [2, 6, 7, 3], color: '#475569' }, // Back
-      { indices: [1, 5, 6, 2], color: '#334155' }, // Right
-      { indices: [0, 3, 7, 4], color: '#1e293b' }  // Left
-    ];
-
-    // Sort faces by depth
-    const facesWithDepth = faces.map(face => {
-      const avgZ = face.indices.reduce((sum, idx) => sum + projectedVertices[idx].z, 0) / face.indices.length;
-      return { ...face, avgZ };
-    });
-    facesWithDepth.sort((a, b) => a.avgZ - b.avgZ);
-
-    // Draw foundation faces
-    facesWithDepth.forEach(({ indices, color }) => {
-      ctx.beginPath();
-      indices.forEach((vertexIndex, i) => {
-        const vertex = projectedVertices[vertexIndex];
-        if (i === 0) {
-          ctx.moveTo(vertex.x, vertex.y);
-        } else {
-          ctx.lineTo(vertex.x, vertex.y);
-        }
-      });
-      ctx.closePath();
-
-      const gradient = ctx.createLinearGradient(
-        projectedVertices[indices[0]].x, projectedVertices[indices[0]].y,
-        projectedVertices[indices[2]].x, projectedVertices[indices[2]].y
-      );
-      gradient.addColorStop(0, color);
-      gradient.addColorStop(1, adjustBrightness(color, -20));
-      
-      ctx.fillStyle = gradient;
-      ctx.fill();
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    });
-  };
-
-  const drawColumn = (ctx: CanvasRenderingContext2D, project3D: Function) => {
-    let vertices: any[] = [];
-
-    switch (columnData.shape) {
-      case 'rectangular':
-        const w = columnData.width / 2;
-        const d = columnData.depth / 2;
-        const h = columnData.height;
-        
-        vertices = [
-          // Bottom face
-          { x: -w, y: 0, z: -d },
-          { x: w, y: 0, z: -d },
-          { x: w, y: 0, z: d },
-          { x: -w, y: 0, z: d },
-          // Top face
-          { x: -w, y: h, z: -d },
-          { x: w, y: h, z: -d },
-          { x: w, y: h, z: d },
-          { x: -w, y: h, z: d }
-        ];
-        break;
-      
-      case 'circular':
-        const radius = columnData.diameter / 2;
-        const segments = 16;
-        const h_circ = columnData.height;
-        
-        vertices = [];
-        // Bottom circle
-        for (let i = 0; i < segments; i++) {
-          const angle = (i / segments) * 2 * Math.PI;
-          vertices.push({
-            x: radius * Math.cos(angle),
-            y: 0,
-            z: radius * Math.sin(angle)
-          });
-        }
-        // Top circle
-        for (let i = 0; i < segments; i++) {
-          const angle = (i / segments) * 2 * Math.PI;
-          vertices.push({
-            x: radius * Math.cos(angle),
-            y: h_circ,
-            z: radius * Math.sin(angle)
-          });
-        }
-        break;
-    }
-
-    const projectedVertices = vertices.map(v => project3D(v.x, v.y, v.z));
-
-    if (columnData.shape === 'rectangular') {
-      const faces = [
-        { indices: [0, 1, 2, 3], color: '#3b82f6' }, // Bottom
-        { indices: [4, 7, 6, 5], color: '#60a5fa' }, // Top
-        { indices: [0, 4, 5, 1], color: '#2563eb' }, // Front
-        { indices: [2, 6, 7, 3], color: '#1d4ed8' }, // Back
-        { indices: [1, 5, 6, 2], color: '#1e40af' }, // Right
-        { indices: [0, 3, 7, 4], color: '#1e3a8a' }  // Left
-      ];
-
-      const facesWithDepth = faces.map(face => {
-        const avgZ = face.indices.reduce((sum, idx) => sum + projectedVertices[idx].z, 0) / face.indices.length;
-        return { ...face, avgZ };
-      });
-      facesWithDepth.sort((a, b) => a.avgZ - b.avgZ);
-
-      facesWithDepth.forEach(({ indices, color }) => {
-        ctx.beginPath();
-        indices.forEach((vertexIndex, i) => {
-          const vertex = projectedVertices[vertexIndex];
-          if (i === 0) {
-            ctx.moveTo(vertex.x, vertex.y);
-          } else {
-            ctx.lineTo(vertex.x, vertex.y);
-          }
-        });
-        ctx.closePath();
-
-        const gradient = ctx.createLinearGradient(
-          projectedVertices[indices[0]].x, projectedVertices[indices[0]].y,
-          projectedVertices[indices[2]].x, projectedVertices[indices[2]].y
-        );
-        gradient.addColorStop(0, color);
-        gradient.addColorStop(1, adjustBrightness(color, -20));
-        
-        ctx.fillStyle = gradient;
-        ctx.fill();
-        ctx.strokeStyle = '#1e3a8a';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      });
-    }
-  };
-
-  const drawReinforcement = (ctx: CanvasRenderingContext2D, project3D: Function) => {
-    if (settings.showMainBars) {
-      drawMainBars(ctx, project3D);
-    }
-    
-    if (settings.showStirrupsAndTies) {
-      drawStirrupsAndTies(ctx, project3D);
-    }
-  };
-
-  const drawMainBars = (ctx: CanvasRenderingContext2D, project3D: Function) => {
-    const cover = reinforcementData.column.mainBars.cover;
-    const effectiveWidth = columnData.width - 2 * cover;
-    const effectiveDepth = columnData.depth - 2 * cover;
-    const count = reinforcementData.column.mainBars.count;
-    
-    // Enhanced rebar visualization
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = Math.max(2, 6 * (settings.zoom ?? 1));
-    ctx.shadowColor = '#f59e0b';
-    ctx.shadowBlur = 2;
-    
-    // Calculate bar positions for rectangular arrangement
-    const barsPerSide = Math.ceil(Math.sqrt(count));
-    const barSpacingX = effectiveWidth / (barsPerSide - 1);
-    const barSpacingZ = effectiveDepth / (barsPerSide - 1);
-    
-    for (let i = 0; i < barsPerSide && i * barsPerSide < count; i++) {
-      for (let j = 0; j < barsPerSide && i * barsPerSide + j < count; j++) {
-        const barX = -effectiveWidth/2 + i * barSpacingX;
-        const barZ = -effectiveDepth/2 + j * barSpacingZ;
-        
-        const topPoint = project3D(barX, columnData.height - cover, barZ);
-        const bottomPoint = project3D(barX, cover, barZ);
-        
-        ctx.beginPath();
-        ctx.moveTo(topPoint.x, topPoint.y);
-        ctx.lineTo(bottomPoint.x, bottomPoint.y);
-        ctx.stroke();
-        
-        // Draw bar end circles
-        const circleRadius = Math.max(2, 4 * (settings.zoom ?? 1));
-        ctx.fillStyle = '#fbbf24';
-        ctx.beginPath();
-        ctx.arc(topPoint.x, topPoint.y, circleRadius, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(bottomPoint.x, bottomPoint.y, circleRadius, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-    }
-    
-    ctx.shadowBlur = 0; // Reset shadow
-  };
-
-  const drawStirrupsAndTies = (ctx: CanvasRenderingContext2D, project3D: Function) => {
-    const cover = reinforcementData.column.mainBars.cover;
-    const effectiveWidth = columnData.width - 2 * cover;
-    const effectiveDepth = columnData.depth - 2 * cover;
-    const spacing = reinforcementData.column.stirrups.spacing;
-    
-    // Enhanced stirrup visualization
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = Math.max(1, 3 * (settings.zoom ?? 1));
-    ctx.shadowColor = '#ef4444';
-    ctx.shadowBlur = 1;
-    
-    const numStirrupsVisible = Math.min(8, Math.floor(columnData.height / spacing));
-    const stirrupInterval = columnData.height / (numStirrupsVisible + 1);
-    
-    for (let i = 1; i <= numStirrupsVisible; i++) {
-      const stirrupY = i * stirrupInterval;
-      
-      const corners = [
-        project3D(-effectiveWidth/2, stirrupY, -effectiveDepth/2),
-        project3D(effectiveWidth/2, stirrupY, -effectiveDepth/2),
-        project3D(effectiveWidth/2, stirrupY, effectiveDepth/2),
-        project3D(-effectiveWidth/2, stirrupY, effectiveDepth/2)
-      ];
-      
-      ctx.beginPath();
-      corners.forEach((corner, index) => {
-        if (index === 0) {
-          ctx.moveTo(corner.x, corner.y);
-        } else {
-          ctx.lineTo(corner.x, corner.y);
-        }
-      });
-      ctx.closePath();
-      ctx.stroke();
-      
-      // Add corner markers for stirrups
-      const markerRadius = Math.max(1, 2 * (settings.zoom ?? 1));
-      corners.forEach(corner => {
-        ctx.beginPath();
-        ctx.arc(corner.x, corner.y, markerRadius, 0, 2 * Math.PI);
-        ctx.fillStyle = '#ef4444';
-        ctx.fill();
-      });
-    }
-    
-    ctx.shadowBlur = 0; // Reset shadow
-  };
-
-  const drawMesh = (ctx: CanvasRenderingContext2D, project3D: Function) => {
-    if (!reinforcementData.footing.mesh.enabled) return;
-    
-    const meshSize = reinforcementData.footing.mesh.meshSize;
-    const w = foundationData.width / 2;
-    const l = foundationData.length / 2;
-    
-    // Enhanced mesh visualization
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = Math.max(0.5, 1.5 * (settings.zoom ?? 1));
-    ctx.globalAlpha = 0.7;
-    
-    // Draw mesh grid on foundation top
-    for (let x = -w; x <= w; x += meshSize) {
-      const start = project3D(x, -10, -l);
-      const end = project3D(x, -10, l);
-      ctx.beginPath();
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(end.x, end.y);
-      ctx.stroke();
-    }
-    
-    for (let z = -l; z <= l; z += meshSize) {
-      const start = project3D(-w, -10, z);
-      const end = project3D(w, -10, z);
-      ctx.beginPath();
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(end.x, end.y);
-      ctx.stroke();
-    }
-    
-    ctx.globalAlpha = 1.0; // Reset alpha
-  };
-
-  const drawDimensions = (ctx: CanvasRenderingContext2D, project3D: Function, scale: number) => {
-    ctx.strokeStyle = '#3b82f6';
-    ctx.fillStyle = '#3b82f6';
-    ctx.lineWidth = 1;
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    
-    const unit = unitSystem === 'metric' ? 'mm' : 'in';
-    
-    // Foundation dimensions
-    const foundationCorners = [
-      project3D(-foundationData.width/2, 0, -foundationData.length/2),
-      project3D(foundationData.width/2, 0, -foundationData.length/2),
-      project3D(foundationData.width/2, 0, foundationData.length/2),
-      project3D(-foundationData.width/2, 0, foundationData.length/2)
-    ];
-    
-    // Draw foundation width dimension
-    const midX = (foundationCorners[0].x + foundationCorners[1].x) / 2;
-    const dimY = foundationCorners[0].y + 30;
-    
-    ctx.beginPath();
-    ctx.moveTo(foundationCorners[0].x, foundationCorners[0].y + 10);
-    ctx.lineTo(foundationCorners[0].x, dimY);
-    ctx.moveTo(foundationCorners[1].x, foundationCorners[1].y + 10);
-    ctx.lineTo(foundationCorners[1].x, dimY);
-    ctx.moveTo(foundationCorners[0].x, dimY);
-    ctx.lineTo(foundationCorners[1].x, dimY);
-    ctx.stroke();
-    
-    ctx.fillText(`${foundationData.width}${unit}`, midX, dimY + 15);
-    
-    // Column height dimension
-    const columnBottom = project3D(columnData.width/2 + 50, 0, 0);
-    const columnTop = project3D(columnData.width/2 + 50, columnData.height, 0);
-    const midY = (columnBottom.y + columnTop.y) / 2;
-    
-    ctx.beginPath();
-    ctx.moveTo(columnBottom.x - 10, columnBottom.y);
-    ctx.lineTo(columnBottom.x, columnBottom.y);
-    ctx.moveTo(columnTop.x - 10, columnTop.y);
-    ctx.lineTo(columnTop.x, columnTop.y);
-    ctx.moveTo(columnBottom.x, columnBottom.y);
-    ctx.lineTo(columnBottom.x, columnTop.y);
-    ctx.stroke();
-    
-    ctx.save();
-    ctx.translate(columnBottom.x + 20, midY);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText(`${columnData.height}${unit}`, 0, 5);
-    ctx.restore();
-  };
-
-  const adjustBrightness = (color: string, amount: number): string => {
-    const hex = color.replace('#', '');
-    const r = Math.max(0, Math.min(255, parseInt(hex.substr(0, 2), 16) + amount));
-    const g = Math.max(0, Math.min(255, parseInt(hex.substr(2, 2), 16) + amount));
-    const b = Math.max(0, Math.min(255, parseInt(hex.substr(4, 2), 16) + amount));
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setLastMouse({ x: e.clientX, y: e.clientY });
-  };
-
-  const handleMouseMove = (e: { clientX: number; clientY: number }) => {
-    if (!isDragging) return;
-    const deltaX = e.clientX - lastMouse.x;
-    const deltaY = e.clientY - lastMouse.y;
-    if (dragMode === 'rotate') {
-      setRotation(prev => ({
-        x: Math.max(-90, Math.min(90, prev.x + deltaY * 0.5)),
-        y: prev.y + deltaX * 0.5
-      }));
-    } else if (dragMode === 'pan') {
-      setPan(prev => ({
-        x: prev.x + deltaX,
-        y: prev.y + deltaY
-      }));
-    }
-    setLastMouse({ x: e.clientX, y: e.clientY });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const resetView = () => {
-    // Reset will be handled by parent component
-    setPan({ x: 0, y: 0 });
-  };
+  }
 
   return (
-    <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-slate-700/50 shadow-xl h-full">
-      {/* Canvas */}
-      <div className="relative h-full">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full cursor-move bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-indigo-900 rounded-2xl"
-          onMouseDown={handleMouseDown}
-          onMouseMove={isDragging ? handleMouseMove : undefined}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onTouchStart={e => {
-            if (e.touches.length === 1) {
-              setIsDragging(true);
-              setLastMouse({ x: e.touches[0].clientX, y: e.touches[0].clientY });
-            }
-          }}
-          onTouchMove={e => {
-            if (isDragging && e.touches.length === 1) {
-              const touch = e.touches[0];
-              handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY } as any);
-            }
-          }}
-          onTouchEnd={() => setIsDragging(false)}
+    <div className="w-full h-full bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-indigo-900 rounded-2xl overflow-hidden">
+      <Canvas
+        shadows
+        camera={{
+          fov: 50,
+          near: 0.1,
+          far: 1000,
+          position: [3, 3, 3]
+        }}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: "high-performance"
+        }}
+      >
+        <Scene
+          foundationData={foundationData}
+          columnData={columnData}
+          reinforcementData={reinforcementData}
+          settings={settings}
+          unitSystem={unitSystem}
         />
-        {/* Controls Overlay */}
-        <div className="absolute bottom-4 left-4 right-4 bg-black/90 backdrop-blur-sm text-white text-xs px-4 py-3 rounded-xl border border-white/10 shadow-xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                className={`flex items-center px-2 py-1 rounded-lg mr-2 ${dragMode === 'rotate' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
-                onClick={() => setDragMode('rotate')}
-                title="Rotate Mode"
-              >
-                <Move3D size={14} className="mr-2" />
-                <span>Rotate</span>
-              </button>
-              <button
-                className={`flex items-center px-2 py-1 rounded-lg ${dragMode === 'pan' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300'}`}
-                onClick={() => setDragMode('pan')}
-                title="Pan Mode"
-              >
-                <Eye size={14} className="mr-2" />
-                <span>Pan</span>
-              </button>
-              <button
-                className="flex items-center px-2 py-1 rounded-lg bg-gray-700 text-gray-300"
-                onClick={resetView}
-                title="Reset View"
-              >
-                <RotateCcw size={14} className="mr-2" />
-                <span>Reset</span>
-              </button>
-              <div className="flex items-center">
-                <ZoomIn size={14} className="mr-2 text-green-400" />
-                <span>Scroll to zoom</span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 text-xs">
-              <span>Zoom: {(settings.zoom ? settings.zoom * 100 : 100).toFixed(0)}%</span>
-              <span>•</span>
-              <span>Rotation: X{rotation.x.toFixed(0)}° Y{rotation.y.toFixed(0)}°</span>
-              <span>•</span>
-              <span>Pan: X{pan.x.toFixed(0)} Y{pan.y.toFixed(0)}</span>
-            </div>
-          </div>
+      </Canvas>
+      
+      {/* Loading overlay for scene updates */}
+      <div className="absolute bottom-4 right-4 bg-black/80 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg">
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <span>3D Scene Active</span>
         </div>
-        {/* Loading Indicator */}
-        {isDragging && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/50 text-white px-3 py-2 rounded-lg text-sm">
-            {dragMode === 'rotate' ? 'Rotating...' : 'Panning...'}
-          </div>
-        )}
       </div>
     </div>
   );
