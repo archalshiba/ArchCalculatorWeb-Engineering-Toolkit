@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calculator, Eye, Download, Settings, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Calculator, Eye, Download, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { GeometryForm } from './components/GeometryForm';
 import { MaterialsForm } from './components/MaterialsForm';
 import { ReinforcementForm } from './components/ReinforcementForm';
-import { ResultsPanel } from './components/ResultsPanel';
+import ResultsPanel from './components/ResultsPanel';
 import { Viewer3D } from './components/Viewer3D';
-import { calculateColumn, calculateFoundation } from '../../utils/calculations';
-import { FoundationData, ColumnData, CalculationResults } from './types/calculator';
+import {
+  calculateColumn,
+  calculateFoundation,
+  calculateBBSBreakdown,
+  RebarCut
+} from '../utils/calculations';
+import { FoundationData, ColumnData } from './types/calculator';
 
 interface RccColumnAndFoundationCalculatorProps {
   onBack: () => void;
@@ -100,7 +105,7 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
   });
 
   // Calculation Results
-  const [results, setResults] = useState<CalculationResults | null>(null);
+  const [results, setResults] = useState<any | null>(null);
 
   // 3D Viewer Settings
   const [viewerSettings, setViewerSettings] = useState({
@@ -124,10 +129,31 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
     try {
       // Simulate calculation time
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       const columnResults = calculateColumn(columnData, materialsData, reinforcementData.column);
       const foundationResults = calculateFoundation(foundationData, materialsData, reinforcementData.footing);
-      
+
+      // Example: Generate rebarCuts array (replace with your actual logic)
+      const rebarCuts: RebarCut[] = [];
+      // You should populate rebarCuts from reinforcementData for real use
+      // For demo, add a sample cut:
+      rebarCuts.push({
+        shape: 'straight',
+        length: 1000,
+        count: 8,
+        bendAllowance: 40,
+        costPerCut: 5
+      });
+
+      // Calculate BBS breakdown
+      const bbsBreakdown = calculateBBSBreakdown(
+        columnResults.totalSteelWeight + foundationResults.totalSteelWeight,
+        60, // steelRate
+        columnResults.concreteVolume + foundationResults.concreteVolume,
+        150, // concreteRate
+        rebarCuts
+      );
+
       setResults({
         column: columnResults,
         foundation: foundationResults,
@@ -135,9 +161,11 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
           totalConcreteVolume: columnResults.concreteVolume + foundationResults.concreteVolume,
           totalSteelWeight: columnResults.totalSteelWeight + foundationResults.totalSteelWeight,
           totalCost: columnResults.totalCost + foundationResults.totalCost
-        }
+        },
+        bbsBreakdown,
+        rebarCuts
       });
-      
+
       setActiveTab('results');
     } catch (error) {
       console.error('Calculation error:', error);
@@ -186,6 +214,8 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
             results={results}
             unitSystem={unitSystem}
             onExport={exportData}
+            bbsBreakdown={results?.bbsBreakdown}
+            rebarCuts={results?.rebarCuts}
           />
         );
       default:
@@ -335,4 +365,5 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
   );
 };
 
-export { RccColumnAndFoundationCalculator }
+// Only use one export to avoid redeclaration error
+// export { RccColumnAndFoundationCalculator }

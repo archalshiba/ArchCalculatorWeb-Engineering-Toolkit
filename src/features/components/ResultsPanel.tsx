@@ -1,15 +1,17 @@
 import React from 'react';
 import { BarChart3, Download, FileText, Table } from 'lucide-react';
 import { InputCard } from './InputCard';
-import { CalculationResults } from '../types/calculator';
+import BssTablePanel from '../../components/BssTablePanel';
 
 interface ResultsPanelProps {
-  results: CalculationResults | null;
+  results: any | null;
   unitSystem: 'metric' | 'imperial';
   onExport: (format: 'pdf' | 'excel' | 'json') => void;
+  bbsBreakdown?: any;
+  rebarCuts?: any;
 }
 
-export const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, unitSystem, onExport }) => {
+const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, unitSystem, onExport, bbsBreakdown, rebarCuts }) => {
   const volumeUnit = unitSystem === 'metric' ? 'm³' : 'ft³';
   const weightUnit = unitSystem === 'metric' ? 'kg' : 'lb';
   const currencyUnit = '$'; // Could be made configurable
@@ -41,47 +43,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, unitSystem,
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-xl text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm">Total Concrete</p>
-              <p className="text-2xl font-bold">
-                {formatNumber(results.combined.totalConcreteVolume)} {volumeUnit}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              🏗️
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-br from-orange-500 to-red-600 p-6 rounded-xl text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-100 text-sm">Total Steel</p>
-              <p className="text-2xl font-bold">
-                {formatNumber(results.combined.totalSteelWeight)} {weightUnit}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              🔩
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-6 rounded-xl text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm">Total Cost</p>
-              <p className="text-2xl font-bold">
-                {currencyUnit}{formatNumber(results.combined.totalCost)}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-              💰
-            </div>
-          </div>
-        </div>
+        {/* You can add summary cards here if needed */}
       </div>
 
       {/* Detailed Results */}
@@ -195,6 +157,13 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, unitSystem,
         </div>
       </InputCard>
 
+      {/* BSS Table Panel for advanced breakdowns */}
+      <BssTablePanel
+        data={results?.combined}
+        bbsBreakdown={bbsBreakdown}
+        rebarCuts={rebarCuts}
+      />
+
       {/* Export Options */}
       <InputCard title="Export Options" icon={<Download size={20} />}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -224,3 +193,5 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, unitSystem,
     </div>
   );
 };
+
+export default ResultsPanel;
