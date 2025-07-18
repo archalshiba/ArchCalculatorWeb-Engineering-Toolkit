@@ -1,3 +1,64 @@
+// Rebar cutting shapes and cost breakdown utilities
+export type RebarShape = 'straight' | 'L-bend' | 'U-bend' | 'stirrup';
+
+export interface RebarCut {
+  shape: RebarShape;
+  length: number; // mm
+  count: number;
+  bendAllowance?: number; // mm
+  costPerCut?: number; // per cut
+}
+
+export const calculateRebarCutLength = (shape: RebarShape, dims: any): number => {
+  switch (shape) {
+    case 'straight':
+      return dims.length;
+    case 'L-bend':
+      return dims.length + dims.bend + (dims.bendAllowance || 40);
+    case 'U-bend':
+      return 2 * dims.length + dims.bend + (dims.bendAllowance || 40);
+    case 'stirrup':
+      // Perimeter + hooks + bend allowance
+      return 2 * (dims.width + dims.depth) + 2 * (dims.hookLength || 75) + (dims.bendAllowance || 40);
+    default:
+      return dims.length;
+  }
+};
+
+export const calculateRebarCuttingCost = (cuts: RebarCut[]): number => {
+  return cuts.reduce((sum, cut) => sum + (cut.count * (cut.costPerCut || 0)), 0);
+};
+
+// Advanced cost breakdown for BBS
+export interface BBSBreakdown {
+  totalCuttingCost: number;
+  totalSteelWeight: number;
+  totalSteelCost: number;
+  totalConcreteVolume: number;
+  totalConcreteCost: number;
+  totalCost: number;
+}
+
+export const calculateBBSBreakdown = (
+  steelWeight: number,
+  steelRate: number,
+  concreteVolume: number,
+  concreteRate: number,
+  cuts: RebarCut[]
+): BBSBreakdown => {
+  const totalSteelCost = steelWeight * steelRate;
+  const totalConcreteCost = concreteVolume * concreteRate;
+  const totalCuttingCost = calculateRebarCuttingCost(cuts);
+  const totalCost = totalSteelCost + totalConcreteCost + totalCuttingCost;
+  return {
+    totalCuttingCost,
+    totalSteelWeight: steelWeight,
+    totalSteelCost,
+    totalConcreteVolume: concreteVolume,
+    totalConcreteCost,
+    totalCost
+  };
+};
 // Comprehensive calculation utilities for engineering applications
 
 export interface ValidationResult {

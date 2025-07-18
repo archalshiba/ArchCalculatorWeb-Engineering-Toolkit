@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import type { BBSBreakdown, RebarCut } from '../utils/calculations';
 
-interface BssTablePanelProps {
+type BssTablePanelProps = {
   data: any;
-}
+  bbsBreakdown?: BBSBreakdown;
+  rebarCuts?: RebarCut[];
+};
 
-const BssTablePanel: React.FC<BssTablePanelProps> = ({ data }) => {
+const BssTablePanel: React.FC<BssTablePanelProps> = ({ data, bbsBreakdown, rebarCuts }) => {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const handleCopy = (value: any) => {
     navigator.clipboard.writeText(String(value));
@@ -22,6 +25,24 @@ const BssTablePanel: React.FC<BssTablePanelProps> = ({ data }) => {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-4 mt-4">
       <h3 className="text-lg font-bold mb-2 text-indigo-700 dark:text-indigo-300">BSS Table</h3>
+      {bbsBreakdown && (
+        <div className="mb-4">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>Total Concrete Volume:</div>
+            <div className="font-bold">{bbsBreakdown.totalConcreteVolume.toFixed(2)} m³</div>
+            <div>Total Concrete Cost:</div>
+            <div className="font-bold">₹{bbsBreakdown.totalConcreteCost.toFixed(2)}</div>
+            <div>Total Steel Weight:</div>
+            <div className="font-bold">{bbsBreakdown.totalSteelWeight.toFixed(2)} kg</div>
+            <div>Total Steel Cost:</div>
+            <div className="font-bold">₹{bbsBreakdown.totalSteelCost.toFixed(2)}</div>
+            <div>Total Cutting Cost:</div>
+            <div className="font-bold">₹{bbsBreakdown.totalCuttingCost.toFixed(2)}</div>
+            <div>Total Cost:</div>
+            <div className="font-bold">₹{bbsBreakdown.totalCost.toFixed(2)}</div>
+          </div>
+        </div>
+      )}
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="bg-indigo-50 dark:bg-indigo-900">
@@ -65,6 +86,36 @@ const BssTablePanel: React.FC<BssTablePanelProps> = ({ data }) => {
               </tr>
             ) : null
           ))}
+          {/* Rebar cutting details */}
+          {rebarCuts && rebarCuts.length > 0 && (
+            <tr>
+              <td colSpan={3} className="p-2 border bg-yellow-50 dark:bg-yellow-900 text-xs text-gray-700 dark:text-gray-300">
+                <div className="font-bold mb-2">Rebar Cutting Details</div>
+                <table className="w-full text-xs border">
+                  <thead>
+                    <tr>
+                      <th className="p-1 border">Shape</th>
+                      <th className="p-1 border">Length (mm)</th>
+                      <th className="p-1 border">Count</th>
+                      <th className="p-1 border">Bend Allowance (mm)</th>
+                      <th className="p-1 border">Cost/Cut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rebarCuts.map((cut: RebarCut, idx: number) => (
+                      <tr key={idx}>
+                        <td className="p-1 border">{cut.shape}</td>
+                        <td className="p-1 border">{cut.length}</td>
+                        <td className="p-1 border">{cut.count}</td>
+                        <td className="p-1 border">{cut.bendAllowance ?? '-'}</td>
+                        <td className="p-1 border">₹{cut.costPerCut ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
