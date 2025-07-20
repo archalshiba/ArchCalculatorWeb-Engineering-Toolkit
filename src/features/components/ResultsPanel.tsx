@@ -1,20 +1,33 @@
-import React from 'react';
-import { BarChart3, Download, FileText, Table } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { BarChart3, Download, FileText, Table, Printer, Info, Calculator } from 'lucide-react';
+import { Tooltip } from 'react-tooltip';
 import { InputCard } from './InputCard';
 import BssTablePanel from '../../components/BssTablePanel';
+import ColumnSvgDiagram from './ColumnSvgDiagram';
+import MaterialBreakdownChart from './MaterialBreakdownChart';
 
 interface ResultsPanelProps {
   results: any | null;
-  unitSystem: 'metric' | 'imperial';
   onExport: (format: 'pdf' | 'excel' | 'json') => void;
   bbsBreakdown?: any;
   rebarCuts?: any;
 }
 
-const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, unitSystem, onExport, bbsBreakdown, rebarCuts }) => {
-  const volumeUnit = unitSystem === 'metric' ? 'm³' : 'ft³';
-  const weightUnit = unitSystem === 'metric' ? 'kg' : 'lb';
-  const currencyUnit = '$'; // Could be made configurable
+const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, onExport, bbsBreakdown, rebarCuts }) => {
+  const [exportStatus, setExportStatus] = useState<string>('');
+  const liveRegionRef = useRef<HTMLDivElement>(null);
+
+  const handleExport = (type: 'pdf' | 'excel' | 'json') => {
+    setExportStatus(`Exporting as ${type.toUpperCase()}...`);
+    onExport(type);
+    setTimeout(() => setExportStatus(''), 2000);
+  };
+
+  const handlePrint = () => {
+    setExportStatus('Sending to printer...');
+    window.print();
+    setTimeout(() => setExportStatus(''), 2000);
+  };
 
   if (!results) {
     return (
@@ -24,137 +37,50 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, unitSystem, onExpo
           <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
             No Results Yet
           </h3>
-          <p className="text-slate-500 dark:text-slate-400">
+          <p className="text-slate-500 dark:text-slate-400 mb-4">
             Run calculations to see detailed quantity results
           </p>
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            aria-label="Run Calculations"
+          >
+            <Calculator size={18} className="mr-2 inline" />Run Calculations
+          </button>
         </div>
       </div>
     );
   }
 
-  const formatNumber = (value: number, decimals: number = 2) => {
-    return value.toLocaleString(undefined, {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
-    });
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* You can add summary cards here if needed */}
+    <div className="space-y-6 sticky bottom-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-2 rounded-t-xl shadow-lg">
+      {/* Guided Tour Button */}
+      <div className="flex justify-end mb-2">
+        <button
+          className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          aria-label="Show guided tour"
+          onClick={() => alert('Guided tour coming soon!')}
+        >
+          <Info size={20} />
+        </button>
       </div>
 
-      {/* Detailed Results */}
-      <InputCard title="Column Quantities" icon={<Table size={20} />}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-700">
-                <th className="text-left py-2 text-slate-600 dark:text-slate-400">Item</th>
-                <th className="text-right py-2 text-slate-600 dark:text-slate-400">Quantity</th>
-                <th className="text-right py-2 text-slate-600 dark:text-slate-400">Unit</th>
-                <th className="text-right py-2 text-slate-600 dark:text-slate-400">Cost</th>
-              </tr>
-            </thead>
-            <tbody className="space-y-2">
-              <tr className="border-b border-slate-100 dark:border-slate-800">
-                <td className="py-2 font-medium text-slate-900 dark:text-slate-100">Concrete Volume</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {formatNumber(results.column.concreteVolume)}
-                </td>
-                <td className="text-right py-2 text-slate-600 dark:text-slate-400">{volumeUnit}</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {currencyUnit}{formatNumber(results.column.concreteCost)}
-                </td>
-              </tr>
-              <tr className="border-b border-slate-100 dark:border-slate-800">
-                <td className="py-2 font-medium text-slate-900 dark:text-slate-100">Main Bars Weight</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {formatNumber(results.column.mainBarsWeight)}
-                </td>
-                <td className="text-right py-2 text-slate-600 dark:text-slate-400">{weightUnit}</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {currencyUnit}{formatNumber(results.column.mainBarsCost)}
-                </td>
-              </tr>
-              <tr className="border-b border-slate-100 dark:border-slate-800">
-                <td className="py-2 font-medium text-slate-900 dark:text-slate-100">Stirrups Weight</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {formatNumber(results.column.stirrupsWeight)}
-                </td>
-                <td className="text-right py-2 text-slate-600 dark:text-slate-400">{weightUnit}</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {currencyUnit}{formatNumber(results.column.stirrupsCost)}
-                </td>
-              </tr>
-              <tr className="bg-slate-50 dark:bg-slate-800">
-                <td className="py-2 font-bold text-slate-900 dark:text-slate-100">Column Total</td>
-                <td className="text-right py-2 font-bold text-slate-900 dark:text-slate-100">-</td>
-                <td className="text-right py-2 text-slate-600 dark:text-slate-400">-</td>
-                <td className="text-right py-2 font-bold text-slate-900 dark:text-slate-100">
-                  {currencyUnit}{formatNumber(results.column.totalCost)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <InputCard title="Column Diagram" icon={<Table size={20} />}>
+        <ColumnSvgDiagram
+          width={results?.column?.width || 200}
+          height={results?.column?.height || 400}
+          rebar={results?.column?.rebarPositions || []}
+        />
       </InputCard>
 
-      <InputCard title="Foundation Quantities" icon={<Table size={20} />}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-700">
-                <th className="text-left py-2 text-slate-600 dark:text-slate-400">Item</th>
-                <th className="text-right py-2 text-slate-600 dark:text-slate-400">Quantity</th>
-                <th className="text-right py-2 text-slate-600 dark:text-slate-400">Unit</th>
-                <th className="text-right py-2 text-slate-600 dark:text-slate-400">Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-slate-100 dark:border-slate-800">
-                <td className="py-2 font-medium text-slate-900 dark:text-slate-100">Concrete Volume</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {formatNumber(results.foundation.concreteVolume)}
-                </td>
-                <td className="text-right py-2 text-slate-600 dark:text-slate-400">{volumeUnit}</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {currencyUnit}{formatNumber(results.foundation.concreteCost)}
-                </td>
-              </tr>
-              <tr className="border-b border-slate-100 dark:border-slate-800">
-                <td className="py-2 font-medium text-slate-900 dark:text-slate-100">Bottom Bars Weight</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {formatNumber(results.foundation.bottomBarsWeight)}
-                </td>
-                <td className="text-right py-2 text-slate-600 dark:text-slate-400">{weightUnit}</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {currencyUnit}{formatNumber(results.foundation.bottomBarsCost)}
-                </td>
-              </tr>
-              <tr className="border-b border-slate-100 dark:border-slate-800">
-                <td className="py-2 font-medium text-slate-900 dark:text-slate-100">Top Bars Weight</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {formatNumber(results.foundation.topBarsWeight)}
-                </td>
-                <td className="text-right py-2 text-slate-600 dark:text-slate-400">{weightUnit}</td>
-                <td className="text-right py-2 text-slate-700 dark:text-slate-300">
-                  {currencyUnit}{formatNumber(results.foundation.topBarsCost)}
-                </td>
-              </tr>
-              <tr className="bg-slate-50 dark:bg-slate-800">
-                <td className="py-2 font-bold text-slate-900 dark:text-slate-100">Foundation Total</td>
-                <td className="text-right py-2 font-bold text-slate-900 dark:text-slate-100">-</td>
-                <td className="text-right py-2 text-slate-600 dark:text-slate-400">-</td>
-                <td className="text-right py-2 font-bold text-slate-900 dark:text-slate-100">
-                  {currencyUnit}{formatNumber(results.foundation.totalCost)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      {/* Material Breakdown Chart */}
+      <InputCard title="Material Breakdown" icon={<Download size={20} />}>
+        <MaterialBreakdownChart
+          cement={results?.foundation?.cement || 0}
+          sand={results?.foundation?.sand || 0}
+          aggregate={results?.foundation?.aggregate || 0}
+          water={results?.foundation?.water || 0}
+        />
       </InputCard>
 
       {/* BSS Table Panel for advanced breakdowns */}
@@ -165,29 +91,63 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({ results, unitSystem, onExpo
       />
 
       {/* Export Options */}
-      <InputCard title="Export Options" icon={<Download size={20} />}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <InputCard title="Export & Share" icon={<Download size={20} />}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button
-            onClick={() => onExport('pdf')}
-            className="flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            onClick={() => handleExport('pdf')}
+            className="flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400"
+            aria-label="Export PDF"
+            tabIndex={0}
+            data-tooltip-id="pdf-tip"
+            data-tooltip-content="Export as PDF"
           >
             <FileText size={20} className="mr-2" />
             Export PDF
           </button>
+          <Tooltip id="pdf-tip" />
           <button
-            onClick={() => onExport('excel')}
-            className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            onClick={() => handleExport('excel')}
+            className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-400"
+            aria-label="Export Excel"
+            tabIndex={0}
+            data-tooltip-id="excel-tip"
+            data-tooltip-content="Export as Excel"
           >
             <Table size={20} className="mr-2" />
             Export Excel
           </button>
+          <Tooltip id="excel-tip" />
           <button
-            onClick={() => onExport('json')}
-            className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={() => handleExport('json')}
+            className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+            aria-label="Export JSON"
+            tabIndex={0}
+            data-tooltip-id="json-tip"
+            data-tooltip-content="Export as JSON"
           >
             <Download size={20} className="mr-2" />
             Export JSON
           </button>
+          <Tooltip id="json-tip" />
+          <button
+            onClick={handlePrint}
+            className="flex items-center justify-center px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+            aria-label="Print Results"
+            tabIndex={0}
+            data-tooltip-id="print-tip"
+            data-tooltip-content="Print results"
+          >
+            <Printer size={20} className="mr-2" />
+            Print
+          </button>
+          <Tooltip id="print-tip" />
+        </div>
+        <div
+          ref={liveRegionRef}
+          aria-live="polite"
+          className="sr-only"
+        >
+          {exportStatus}
         </div>
       </InputCard>
     </div>

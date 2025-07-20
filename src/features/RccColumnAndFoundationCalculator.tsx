@@ -212,7 +212,6 @@ export const RccColumnAndFoundationCalculator: React.FC<RccColumnAndFoundationCa
         return (
           <ResultsPanel
             results={results}
-            unitSystem={unitSystem}
             onExport={exportData}
             bbsBreakdown={results?.bbsBreakdown}
             rebarCuts={results?.rebarCuts}

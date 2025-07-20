@@ -4,14 +4,14 @@ ArchCalculatorWeb-Engineering-Toolkit
 A modern, professional web toolkit for architects and civil engineers featuring RCC Column & Foundation calculators with interactive 3D/2D visualization.
 
 ## Developer Workflows
-- **Install dependencies:** `npm install` (use `--legacy-peer-deps` if you hit peer conflicts)
+- **Install dependencies:** `npm install --legacy-peer-deps` (use `` if you hit peer conflicts)
 - **Start dev server:** `npm run dev` (Vite, hot reload)
 - **Lint:** `npm run lint` (ESLint, config in `eslint.config.js`)
 - **Build:** `npm run build`
 - **Preview:** `npm run preview`
-- **3D dependencies:** Uses `@react-three/fiber`, `@react-three/drei`, and `three`. Ensure versions are compatible (see `package.json`).
 ---
-
+npm install
+npm run dev
 # Step-by-Step Plan to Optimize, Develop, and Enhance the App
 
 ## 1. Vision & Goals
